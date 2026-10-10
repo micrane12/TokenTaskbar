@@ -1,0 +1,21 @@
+# Generated applications and build output
+*.exe
+*.zip
+_internal/
+build/
+dist/
+release/
+__pycache__/
+*.pyc
+# Local accounts, readings and preferences
+data/
+settings.json
+widget-settings.json*
+*.log
+*-test.txt
+status.txt
+instance.txt
+error.txt
+taskbar-host.txt
+layout-state.txt
+SOL-HANDOFF.md

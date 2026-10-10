@@ -1,0 +1,43 @@
+name: Windows release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install build dependency
+        run: python -m pip install -r source/requirements-build.txt
+      - name: Build portable application
+        shell: pwsh
+        run: ./source/build.ps1
+      - name: Python tests
+        run: python -m unittest discover -s source -v
+      - name: Native layout checks
+        shell: pwsh
+        run: |
+          $p = Start-Process ./TokenTaskbar.exe -ArgumentList '--test' -Wait -PassThru
+          if ($p.ExitCode -ne 0 -or -not (Test-Path layout-test.txt)) { throw 'Native tests failed' }
+          Get-Content layout-test.txt
+      - name: Package
+        shell: pwsh
+        run: ./source/package-release.ps1 -Version '${{ github.ref_type == 'tag' && github.ref_name || 'dev' }}'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TokenTaskbar-windows
+          path: |
+            release/*.zip
+            release/*.sha256
+      - name: Create draft release
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create '${{ github.ref_name }}' release/*.zip release/*.sha256 --draft --title 'TokenTaskbar ${{ github.ref_name }}' --notes-file RELEASE-NOTES.md
