@@ -35,9 +35,9 @@ jobs:
           path: |
             release/*.zip
             release/*.sha256
-      - name: Create draft release
+      - name: Publish release
         if: github.ref_type == 'tag'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create '${{ github.ref_name }}' release/*.zip release/*.sha256 --draft --title 'TokenTaskbar ${{ github.ref_name }}' --notes-file RELEASE-NOTES.md
+        run: gh release create '${{ github.ref_name }}' release/*.zip release/*.sha256 --title 'TokenTaskbar ${{ github.ref_name }}' --notes-file RELEASE-NOTES.md

@@ -204,7 +204,7 @@ class SettingsPanel : Form {
     readonly ToggleSwitch showClaude=new ToggleSwitch {AccessibleName="Show Claude"},showCodex=new ToggleSwitch {AccessibleName="Show Codex"},
         startup=new ToggleSwitch {AccessibleName="Start with Windows"};
     readonly Button nudgeLeft=new Button {Text="◀",AccessibleName="Nudge left 10 pixels"},nudgeRight=new Button {Text="▶",AccessibleName="Nudge right 10 pixels"},
-        cancel=new Button {Text="Cancel"},save=new Button {Text="Save"};
+        cancel=new Button {Text="Cancel"},save=new Button {Text="Save"},updateApp=new Button {Text="Update"},uninstallApp=new Button {Text="Uninstall"};
     readonly LinkLabel nudgeReset=new LinkLabel {Text="Reset",AutoSize=true},reset=new LinkLabel {Text="Reset to defaults",AutoSize=true};
     readonly System.Windows.Forms.Timer preview=new System.Windows.Forms.Timer {Interval=300};
     bool loading,startupSaved; string errorTitle="",errorText="";
@@ -221,13 +221,13 @@ class SettingsPanel : Form {
         nudgeLeft.Bounds=R(36,304,32,32);nudgeRight.Bounds=R(372,304,32,32);nudgeReset.Location=new Point(S(250),S(280));
         showClaude.Bounds=R(364,482,40,20);showCodex.Bounds=R(364,526,40,20);startup.Bounds=R(364,646,40,20);
         foreach(Control c in new Control[]{size,nudge,position,nudgeReset,showClaude,showCodex,startup}) c.BackColor=Art.Card;
-        foreach(var b in new[]{nudgeLeft,nudgeRight,cancel,save}) {
+        foreach(var b in new[]{nudgeLeft,nudgeRight,cancel,save,updateApp,uninstallApp}) {
             b.FlatStyle=FlatStyle.Flat;b.FlatAppearance.BorderColor=Art.Line;b.BackColor=Art.Bg;b.ForeColor=Art.Ink;b.Cursor=Cursors.Hand;b.UseVisualStyleBackColor=false;
         }
         nudgeLeft.Font=nudgeRight.Font=new Font("Segoe UI Symbol",8);cancel.BackColor=Art.Card;
         foreach(var link in new[]{nudgeReset,reset}) {link.LinkColor=Art.Muted;link.ActiveLinkColor=Art.Ink;link.VisitedLinkColor=Art.Muted;link.Font=new Font("Segoe UI",9);}
         reset.BackColor=Art.Bg;
-        Controls.AddRange(new Control[]{size,position,nudgeLeft,nudge,nudgeRight,nudgeReset,showClaude,showCodex,startup,reset,cancel,save});
+        Controls.AddRange(new Control[]{size,position,nudgeLeft,nudge,nudgeRight,nudgeReset,showClaude,showCodex,startup,reset,cancel,save,updateApp,uninstallApp});
         size.ValueChanged+=(s,e)=>Changed();nudge.ValueChanged+=(s,e)=>Changed();position.SelectedChanged+=(s,e)=>Changed();
         showClaude.CheckedChanged+=(s,e)=>Changed();showCodex.CheckedChanged+=(s,e)=>Changed();startup.CheckedChanged+=(s,e)=>Changed();
         nudgeLeft.Click+=(s,e)=>Nudge(-1);nudgeRight.Click+=(s,e)=>Nudge(1);
@@ -238,6 +238,7 @@ class SettingsPanel : Form {
             loading=false;Changed();
         };
         preview.Tick+=(s,e)=> {preview.Stop();widget.PreviewSettings(Read());};
+        updateApp.Click+=(s,e)=>ManageApp(false);uninstallApp.Click+=(s,e)=>ManageApp(true);
         save.Click+=(s,e)=>Save();
         cancel.Click+=(s,e)=>Close();
         AcceptButton=save;CancelButton=cancel;
@@ -271,7 +272,14 @@ class SettingsPanel : Form {
     void LayoutFooter() {
         int top=FooterTop;
         reset.Location=new Point(S(20),S(top+20));cancel.Bounds=R(232,top+14,90,34);save.Bounds=R(330,top+14,90,34);
-        ClientSize=new Size(S(440),S(top+64));
+        updateApp.Bounds=R(20,top+64,192,32);uninstallApp.Bounds=R(228,top+64,192,32);uninstallApp.ForeColor=Bad;
+        ClientSize=new Size(S(440),S(top+112));
+    }
+    void ManageApp(bool uninstall) {
+        if(!uninstall) {Process.Start(new ProcessStartInfo("https://github.com/micrane12/TokenTaskbar/releases/latest"){UseShellExecute=true});return;}
+        if(MessageBox.Show(this,"Stop TokenTaskbar and remove Start with Windows? This development folder and Claude/Codex data will be preserved.","Uninstall TokenTaskbar",MessageBoxButtons.YesNo,MessageBoxIcon.Warning)!=DialogResult.Yes) return;
+        try {Startup.SetEnabled(false);widget.Quit();}
+        catch {ShowError("Couldn't unregister the widget","Check your Startup folder permissions.");}
     }
     void ShowError(string title,string text) {errorTitle=title;errorText=text;UpdateChrome();}
     void Save() {
@@ -686,7 +694,7 @@ class Widget : Form {
     readonly EventWaitHandle openRequest;
     readonly SynchronizationContext ui=new WindowsFormsSynchronizationContext();
     string renderedKey="",diagnosticMessage="",tooltipText="",panelKey="";
-    bool scanning,closing,hover,started; int ticks,scanGeneration; string workerError=""; double lastRestart,missingSince;
+    bool scanning,closing,started; int ticks,scanGeneration; string workerError=""; double lastRestart,missingSince;
     public void Quit() {QuitRequested=true;Close();}
     public Provider FindProvider(string id) { return Data==null || Data.providers==null ? null : Data.providers.FirstOrDefault(p=>p.id==id); }
     public string Machine { get { return Data==null ? Environment.MachineName : Data.machine; } }
@@ -712,8 +720,8 @@ class Widget : Form {
         menu.Items.Add("Quit",null,(s,e)=>Quit()); ContextMenuStrip=menu;
         tray.Icon=trayIcon; tray.Text="Token Taskbar - click to open panel"; tray.ContextMenuStrip=menu; tray.Visible=true;
         tray.MouseClick+=(s,e)=> { if(e.Button==MouseButtons.Left) OpenDetails(); };
-        MouseClick+=(s,e)=> { if(e.Button==MouseButtons.Left) OpenDetails(); };
-        MouseEnter+=(s,e)=> { hover=true; Invalidate(); }; MouseLeave+=(s,e)=> {hover=false; Invalidate();};
+
+
         Shown+=(s,e)=> {
             if(started) return;
             started=true;
@@ -827,6 +835,12 @@ class Widget : Form {
     protected override void WndProc(ref Message message) {
         // Accept clicks without activating the embedded taskbar window.
         if(message.Msg==0x0021) {message.Result=new IntPtr(3);return;}
+        // Layered-window alpha hit testing routes only painted pixels here.
+        // Handle release directly: WinForms MouseClick may be lost after Explorer reparenting.
+        if(message.Msg==0x0202) {
+            ui.Post(_=> {if(!closing && !IsDisposed) OpenSettings();},null);
+            message.Result=IntPtr.Zero;return;
+        }
         base.WndProc(ref message);
     }
     protected override void OnPaintBackground(PaintEventArgs e) { }
@@ -842,11 +856,11 @@ class Widget : Form {
         if(Native.GetParent(Handle)!=IntPtr.Zero && Native.GetWindow(Handle,3)!=IntPtr.Zero)
             Native.SetWindowPos(Handle,IntPtr.Zero,0,0,0,0,0x0001|0x0002|0x0010);
         var shown=Settings.VisibleProviders();
-        string tooltip=String.Join("\n",shown.Select(id=>(id=="claude" ? "Claude: " : "Codex: ")+StatusFor(FindProvider(id))))+"\nSession then weekly usage. Below: time left | local reset time.\n* Last-known quota. Click for details.";
+        string tooltip=String.Join("\n",shown.Select(id=>(id=="claude" ? "Claude: " : "Codex: ")+StatusFor(FindProvider(id))))+"\nSession then weekly usage. Below: time left | local reset time.\n* Last-known quota. Click visible text, bars or icons for Settings.";
         if(tooltip!=tooltipText) {tooltipText=tooltip;tip.SetToolTip(this,tooltip);}
-        string nextKey=Art.FrameKey(Data,Width,Height,hover,shown)+Handle.ToString()+slot.ToString();
+        string nextKey=Art.FrameKey(Data,Width,Height,false,shown)+Handle.ToString()+slot.ToString();
         if(nextKey==renderedKey) return;
-        using(var bitmap=Art.Frame(Data,Width,Height,hover,shown)) {
+        using(var bitmap=Art.Frame(Data,Width,Height,false,shown)) {
             IntPtr screen=Native.GetDC(IntPtr.Zero),memory=IntPtr.Zero,pixels=IntPtr.Zero,previous=IntPtr.Zero;
             try {
                 memory=Native.CreateCompatibleDC(screen);pixels=bitmap.GetHbitmap(Color.FromArgb(0));

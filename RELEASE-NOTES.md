@@ -7,3 +7,7 @@ Download the Windows ZIP, extract all files into a writable folder, and run Toke
 This is an unsigned preview. Taskbar customization, auto-hide and secondary monitors have not been fully verified. It uses free taskbar space and falls back to the tray when space is unavailable. Each PC reads its own accounts and local token records; remote PC monitoring is not included.
 
 The archive contains no credentials, usage cache or personal settings. SHA-256 checksums are provided alongside the ZIP.
+
+## v0.1.1
+
+Visible widget icons, text and bars now open Settings directly; transparent empty space remains click-through. Settings includes Update (opens the latest release) and Uninstall (removes startup registration and stops the portable widget while preserving files). Full installation-file removal and automatic updating are not yet implemented.
