@@ -11,3 +11,7 @@ The archive contains no credentials, usage cache or personal settings. SHA-256 c
 ## v0.1.1
 
 Visible widget icons, text and bars now open Settings directly; transparent empty space remains click-through. Settings includes Update (opens the latest release) and Uninstall (removes startup registration and stops the portable widget while preserving files). Full installation-file removal and automatic updating are not yet implemented.
+
+## v0.1.2
+
+Automatically shrink to the largest available taskbar slot when the preferred size cannot fit. Windows DPI and taskbar height are respected, the preferred size stays saved, and Settings reports the fitted size. The minimum is 70%; tray fallback remains when space is insufficient.

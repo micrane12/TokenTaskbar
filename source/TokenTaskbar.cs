@@ -325,7 +325,7 @@ class SettingsPanel : Form {
         Art.Text(g,"70%",11,Art.Muted,new Rectangle(36,138,60,16));
         Art.Text(g,"100%",11,Art.Muted,new Rectangle(220,138,60,16));
         Art.Text(g,"125%",11,Art.Muted,new Rectangle(344,138,60,16),false,true);
-        Art.Text(g,"Never taller than the taskbar.",12,Art.Muted,new Rectangle(36,156,368,18));
+        Art.Text(g,"Automatically fits taskbar height and available space.",12,Art.Muted,new Rectangle(36,156,368,18));
         Divider(g,184);
         Art.Text(g,"Position",13,Art.Ink,new Rectangle(36,194,200,22),true);
         Divider(g,268);
@@ -335,7 +335,8 @@ class SettingsPanel : Form {
         Divider(g,368);
         string title,detail;Color color;
         string placement=preview.Enabled ? "pending" : widget.Placement;
-        if(placement=="ok") {color=Ok;title="On the taskbar, "+(position.Selected=="Center" ? "centered" : position.Selected.ToLower()+" side");detail="Placed where you asked.";}
+        if(placement=="fitted") {color=Ok;title="Automatically fitted to "+widget.EffectiveSize+"%";detail="Your preferred size stays saved for larger taskbars.";}
+        else if(placement=="ok") {color=Ok;title="On the taskbar, "+(position.Selected=="Center" ? "centered" : position.Selected.ToLower()+" side");detail="Placed where you asked.";}
         else if(placement=="moved") {color=Warn;title="Moved to the nearest free space";detail="Taskbar buttons are in the way. Try a smaller size.";}
         else if(placement=="tray") {color=Bad;title="Not enough room on the taskbar";detail="Showing in the tray until there is room.";}
         else {color=Art.Muted;title="Checking the taskbar…";detail="Finding a free space for this size.";}
@@ -434,7 +435,18 @@ static class Layout {
         if(right-12-cursor>=width) choices.Add(new Rectangle(Math.Max(cursor,Math.Min(target,right-12-width)),top,width,height));
         return choices.OrderBy(r=>Math.Abs((long)r.Left-target)).FirstOrDefault();
     }
-    public static Rectangle Find(IntPtr taskbar, int width, int self,string position="Left",int offset=0) {
+    public static Rectangle FitGap(int left,int right,int top,int height,int wanted,int minimum,List<Rectangle> occupied,string position,int offset) {
+        var full=PreferredGap(left,right,top,height,wanted,occupied,position,offset);
+        if(!full.IsEmpty) return full;
+        int low=Math.Max(1,minimum),high=wanted-1;Rectangle best=Rectangle.Empty;
+        while(low<=high) {
+            int width=low+(high-low)/2;
+            var candidate=PreferredGap(left,right,top,height,width,occupied,position,offset);
+            if(candidate.IsEmpty) high=width-1;else {best=candidate;low=width+1;}
+        }
+        return best;
+    }
+    public static Rectangle Find(IntPtr taskbar, int width, int self,string position="Left",int offset=0,int minimum=0) {
         Native.RECT nr; Native.GetWindowRect(taskbar, out nr);
         if(nr.Right<=nr.Left || nr.Bottom<=nr.Top) throw new InvalidOperationException("Taskbar geometry is transitioning");
         if (nr.Right - nr.Left < nr.Bottom - nr.Top) return Rectangle.Empty;
@@ -455,7 +467,7 @@ static class Layout {
         }
         // No accessibility controls means layout is unknown: fail closed.
         if (boxes.Count == 0) throw new InvalidOperationException("Taskbar accessibility is transitioning");
-        var gap=PreferredGap(nr.Left,nr.Right,nr.Top,nr.Bottom-nr.Top,width,boxes,position,offset);
+        var gap=minimum>0 ? FitGap(nr.Left,nr.Right,nr.Top,nr.Bottom-nr.Top,width,minimum,boxes,position,offset) : PreferredGap(nr.Left,nr.Right,nr.Top,nr.Bottom-nr.Top,width,boxes,position,offset);
         if(gap.IsEmpty) try {File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"layout-state.txt"),"root="+nr.Left+","+nr.Top+","+nr.Right+","+nr.Bottom+"; wanted="+width+"; occupied="+String.Join(";",boxes.Select(b=>b.ToString())));} catch { }
         return gap;
     }
@@ -683,6 +695,7 @@ class Widget : Form {
     public WidgetSettings SavedSettings;
     // Result of the latest placement: pending, ok, moved (preferred spot blocked) or tray.
     public string Placement="pending";
+    public int EffectiveSize=100;
     public event EventHandler PlacementChanged;
     bool settingsScan;
     SettingsPanel settingsPanel;
@@ -795,14 +808,16 @@ class Widget : Form {
         double dpi=Native.GetDpiForWindow(bar)/96.0;
         Native.RECT barBounds;Native.GetWindowRect(bar,out barBounds);
         double scale=Math.Min(Settings.SizePercent/100.0*dpi,(barBounds.Bottom-barBounds.Top)/38.0);
-        int wanted=Math.Max(1,(int)(Art.LogicalWidth(Settings.VisibleProviders())*scale));
+        int logicalWidth=Art.LogicalWidth(Settings.VisibleProviders());
+        int wanted=Math.Max(1,(int)(logicalWidth*scale));
+        int minimum=Math.Min(wanted,Math.Max(1,(int)(logicalWidth*0.70*dpi)));
         string preferred=Settings.Position;int offset=(int)(Settings.Offset*dpi);
         int target=global::Layout.Target(barBounds.Left,barBounds.Right,wanted,preferred,offset);
         // A scan caused by a settings change is deliberate, so skip the transition grace period.
         bool deliberate=settingsScan; settingsScan=false;
         Task.Run(()=> {
             Rectangle found=Rectangle.Empty;bool reliable=false;
-            try { found=global::Layout.Find(bar,wanted,pid,preferred,offset);reliable=true; } catch { }
+            try { found=global::Layout.Find(bar,wanted,pid,preferred,offset,minimum);reliable=true; } catch { }
             if(closing) return;
             try { ui.Post(_=> {
                 if(closing || IsDisposed || generation!=scanGeneration) return;
@@ -813,7 +828,9 @@ class Widget : Form {
                     if(!deliberate && !slot.IsEmpty && Art.Now-missingSince<4) {Diagnostic("Taskbar transition: retaining last slot");return;}
                     Hide();slot=Rectangle.Empty;SetPlacement("tray");Diagnostic("No stable taskbar gap; tray fallback active");return;
                 }
-                missingSince=0;SetPlacement(found.Left==target ? "ok" : "moved");
+                missingSince=0;
+                EffectiveSize=(int)Math.Round(found.Width/(logicalWidth*dpi)*100);
+                SetPlacement(found.Width<wanted ? "fitted" : found.Left==target ? "ok" : "moved");
                 slot=found; taskbar=bar; var host=Native.TaskbarContentHost(bar);
                 if(Native.GetParent(Handle)!=host) {
                     long style=Native.GetStyle(Handle,-16).ToInt64();
@@ -940,6 +957,11 @@ static class Program {
                 var legacy=WidgetSettings.Load(settingsPath);
                 if(!legacy.ShowClaude || !legacy.ShowCodex || legacy.SizePercent!=85) throw new Exception("Older settings file did not load");
             } finally {if(File.Exists(settingsPath)) File.Delete(settingsPath);}
+            var fitBoxes=new List<Rectangle>{new Rectangle(700,0,300,48)};
+            var fitted=Layout.FitGap(0,1000,0,48,808,565,fitBoxes,"Left",0);
+            if(fitted.Width!=676 || fitted.Left!=12 || fitBoxes.Any(r=>r.IntersectsWith(fitted))) throw new Exception("Auto fit failed");
+            if(!Layout.FitGap(0,1000,0,48,808,700,fitBoxes,"Left",0).IsEmpty) throw new Exception("Auto fit ignored minimum size");
+            if(Layout.FitGap(0,1200,0,48,808,565,new List<Rectangle>(),"Right",0).Width!=808) throw new Exception("Auto fit enlarged/shrank an available full size");
             var sample=new Snapshot {generated=Art.Now,providers=new[]{new Provider {id="claude",state="ok",windows=new[]{new Quota {valid=true,used=25,reset=Art.Now+7200}}}}};
             string original=Art.FrameKey(sample,626,48,false);
             sample.generated+=1;
