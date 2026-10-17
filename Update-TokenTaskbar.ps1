@@ -38,7 +38,9 @@ try {
     $zip = Join-Path $stage 'release.zip'
     Write-Host "Downloading $($release.tag_name)..."
     Invoke-WebRequest $asset.browser_download_url -OutFile $zip -UseBasicParsing
-    $expected = ((Invoke-WebRequest $checksum.browser_download_url -UseBasicParsing).Content -split '\s+')[0]
+    $checksumContent=(Invoke-WebRequest $checksum.browser_download_url -UseBasicParsing).Content
+    if($checksumContent -is [byte[]]) {$checksumContent=[Text.Encoding]::UTF8.GetString($checksumContent)}
+    $expected=([string]$checksumContent -split '\s+')[0]
     if ($expected -notmatch '^[a-fA-F0-9]{64}$' -or (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash -ne $expected) { throw 'Checksum verification failed. Existing files were not changed.' }
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $unpack = [IO.Path]::GetFullPath((Join-Path $stage 'unpacked'))

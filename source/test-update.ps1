@@ -21,7 +21,7 @@ function Invoke-RestMethod {
 function Invoke-WebRequest {
     param($Uri,$OutFile,[switch]$UseBasicParsing)
     if($OutFile) {Copy-Item -LiteralPath $fixtureZip -Destination $OutFile}
-    else {return @{Content=$(if($global:testUpdaterBadHash) {'0'*64} else {$expectedHash})}}
+    else {return @{Content=[Text.Encoding]::UTF8.GetBytes($(if($global:testUpdaterBadHash) {'0'*64} else {$expectedHash}))}}
 }
 function Get-Item {
     param($LiteralPath,$Path)

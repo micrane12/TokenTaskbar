@@ -61,4 +61,4 @@ Changes are previews until you click **Save**; the footer shows "Not saved yet" 
 
 ## Updating
 
-From v0.1.6 onward, open Settings and click Check for updates. Save or undo pending settings first. A progress window downloads and verifies the latest release, updates files in place, and restarts the widget. Your saved preferences remain. Existing versions need one manual ZIP update to v0.1.6 to obtain the updater. The app folder must be writable. Failed installations retain a backup in the temporary update folder.
+From v0.1.7 onward, open Settings and click Check for updates. Save or undo pending settings first. A progress window downloads and verifies the latest release, updates files in place, and restarts the widget. Your saved preferences remain. Existing versions need one manual ZIP update to v0.1.7 to obtain the updater. The app folder must be writable. Failed installations retain a backup in the temporary update folder.
