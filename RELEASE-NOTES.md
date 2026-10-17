@@ -15,3 +15,7 @@ Visible widget icons, text and bars now open Settings directly; transparent empt
 ## v0.1.2
 
 Automatically shrink to the largest available taskbar slot when the preferred size cannot fit. Windows DPI and taskbar height are respected, the preferred size stays saved, and Settings reports the fitted size. The minimum is 70%; tray fallback remains when space is insufficient.
+
+## v0.1.3
+
+Displays the installed version in the window title and both panel tabs. Includes larger, smoother countdown/reset text, enough space for 100% and stale markers, usage colors changing to yellow at 60% and red at 80%, unified Usage/Settings tabs, and taskbar visibility/provider logo controls.

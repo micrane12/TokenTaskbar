@@ -47,11 +47,14 @@ The reused Bridge account readers use provider usage endpoints that may change. 
 
 ## Widget settings
 
-Right-click a provider icon/text or the Token Taskbar tray icon and choose Settings. You can also open the usage panel and click Settings. The panel opens above the widget.
+Usage and settings share one window with **Usage** and **Settings** tabs. Clicking the widget or tray icon opens the Usage tab; right-clicking either and choosing Settings opens the Settings tab. The window opens above the widget.
+
+- **Show on taskbar** turns the taskbar widget off without quitting. Token Taskbar keeps running from its tray icon; turn the switch back on (and Save) to bring the widget back. Quit widget on the Usage tab exits the app.
 
 - **Size** (70-125%, 5% steps), **Position** (Left/Center/Right) and **Nudge** (±400 px; arrows move 10 px, Shift+arrows 1 px) change the widget on the taskbar as you adjust them. Size is capped to taskbar height, and position uses the nearest unoccupied gap.
 - A status line reports where the widget landed: placed as asked, moved to the nearest free space, or in the tray because no gap is wide enough.
+- **Show provider logos** hides the Claude and Codex logos on the taskbar widget, making it about 31 px narrower per provider. The usage window keeps its logos.
 - **Show Claude / Show Codex** hide one provider on the taskbar, which halves the widget's width. At least one stays on. The usage panel always shows both.
 - **Start with Windows** adds or removes a Startup-folder shortcut.
 
-Changes are previews until you click **Save**; the header shows "Not saved yet" meanwhile. **Cancel**, Esc or closing the window returns the taskbar to the saved settings. **Reset to defaults** previews the defaults (Start with Windows unchanged); Save keeps them. Settings are stored locally in widget-settings.json beside the executable.
+Changes are previews until you click **Save**; the footer shows "Not saved yet" meanwhile. **Undo changes**, Esc or closing the window returns the taskbar to the saved settings. Switching tabs keeps unsaved changes. **Reset to defaults** previews the defaults (Start with Windows unchanged); Save keeps them. Settings are stored locally in widget-settings.json beside the executable.
