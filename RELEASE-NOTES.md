@@ -19,3 +19,7 @@ Automatically shrink to the largest available taskbar slot when the preferred si
 ## v0.1.3
 
 Displays the installed version in the window title and both panel tabs. Includes larger, smoother countdown/reset text, enough space for 100% and stale markers, usage colors changing to yellow at 60% and red at 80%, unified Usage/Settings tabs, and taskbar visibility/provider logo controls.
+
+## v0.1.4
+
+Percentage text is white below 60%, orange from 60%, and red from 80%. Percentage labels fit their content (including 100% and stale markers), with a small gap beside the progress bar. The bar and time row resize together.

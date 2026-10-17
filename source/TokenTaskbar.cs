@@ -15,8 +15,8 @@ using System.Web.Script.Serialization;
 using System.Windows.Automation;
 using System.Windows.Forms;
 
-[assembly: System.Reflection.AssemblyVersion("0.1.3.0")]
-[assembly: System.Reflection.AssemblyFileVersion("0.1.3.0")]
+[assembly: System.Reflection.AssemblyVersion("0.1.4.0")]
+[assembly: System.Reflection.AssemblyFileVersion("0.1.4.0")]
 static class AppVersion {
     public static string Display {get {return "v"+typeof(AppVersion).Assembly.GetName().Version.ToString(3);}}
 }
@@ -616,13 +616,24 @@ static class Art {
             Rule(g,Line,left+271-cut,y+8,y+34);
             for(int j=0;j<2;j++) {
                 var w=windows.Length>j ? windows[j] : null; int q=left+(j==0 ? 103 : 281)-cut;
-                Bar(g,w,accent,new Rectangle(q,y+10,98,4));
-                Text(g,Valid(w) ? w.used.ToString("0")+"%"+(stale ? "*" : "") : "—",
-                    16,UsageColor(w,accent),new Rectangle(q+102,y+3,56,32),true,true);
+                string percentage=Valid(w) ? w.used.ToString("0")+"%"+(stale ? "*" : "") : "—";
+                int percentWidth=PercentageWidth(g,percentage);
+                int barWidth=158-percentWidth-7;
+                Bar(g,w,accent,new Rectangle(q,y+10,barWidth,4));
+                Text(g,percentage,16,UsageColor(w,Ink),new Rectangle(q+barWidth+7,y+3,percentWidth,32),true,true);
                 Text(g,CompactCountdown(w),13,Ink,new Rectangle(q,y+20,46,18),true,false,true);
-                Text(g,ResetTime(w,j==1),11,Color.FromArgb(190,190,202),new Rectangle(q+46,y+21,52,16),true,true);
+                Text(g,ResetTime(w,j==1),11,Color.FromArgb(190,190,202),new Rectangle(q+46,y+21,barWidth-46,16),true,true);
             }
         }
+    }
+    static int PercentageWidth(Graphics g,string text) {
+        float scale;using(var transform=g.Transform) scale=transform.Elements[3];
+        var state=g.Save();
+        try {
+            g.ResetTransform();
+            var font=UiFont(Math.Max(6f,(float)Math.Round(16*scale)),true,true);
+            return (int)Math.Ceiling(g.MeasureString(text,font,1000,StringFormat.GenericTypographic).Width/scale)+2;
+        } finally {g.Restore(state);}
     }
     // Static Segoe UI faces: GDI+ cannot select weights of the variable Windows 11 font, and these are hinted for small sizes.
     static readonly bool Semibold=Installed("Segoe UI Semibold");
@@ -680,7 +691,7 @@ static class Art {
     public static Color UsageColor(Quota w,Color accent) {
         if(!Valid(w)) return Muted;
         if(w.used>=80) return Color.FromArgb(237,111,106);
-        if(w.used>=60) return Color.FromArgb(240,201,75);
+        if(w.used>=60) return Color.FromArgb(240,163,77);
         return accent;
     }
     public static void Bar(Graphics g, Quota w, Color accent, Rectangle r) {
@@ -775,7 +786,7 @@ class Detail : Form {
             for(int j=0;j<2;j++) {
                 var w=windows.Length>j ? windows[j] : null; int y=176+j*58;
                 Art.Text(g,j==0 ? "5 hours" : "Week",12,Art.Muted,new Rectangle(x+16,y,184,18));
-                Art.Text(g,Art.Valid(w) ? w.used.ToString("0")+"% used" : "Unavailable",12,Art.UsageColor(w,accent),new Rectangle(x+220,y,104,18),true);
+                Art.Text(g,Art.Valid(w) ? w.used.ToString("0")+"% used" : "Unavailable",12,Art.UsageColor(w,Art.Ink),new Rectangle(x+220,y,104,18),true);
                 Art.Bar(g,w,accent,new Rectangle(x+16,y+24,304,5));
                 Art.Text(g,Art.Valid(w) ? Art.Countdown(w.reset) : "Waiting for an account reading",11,Art.Muted,new Rectangle(x+16,y+32,304,18));
             }
@@ -1084,7 +1095,7 @@ static class Program {
             colorWindow.used=59;
             if(Art.UsageColor(colorWindow,Color.Blue)!=Color.Blue) throw new Exception("Below 60 percent provider color failed");
             colorWindow.used=60;
-            if(Art.UsageColor(colorWindow,Color.Blue)!=Color.FromArgb(240,201,75)) throw new Exception("Warning quota color failed");
+            if(Art.UsageColor(colorWindow,Color.Blue)!=Color.FromArgb(240,163,77)) throw new Exception("Warning quota color failed");
             using(var check=new Bitmap(100,40)) using(var graphics=Graphics.FromImage(check)) {
                 if(graphics.MeasureString("100%*",Art.UiFont(16,true,true),1000,StringFormat.GenericTypographic).Width>56) throw new Exception("Full percentage text would clip");
             }
