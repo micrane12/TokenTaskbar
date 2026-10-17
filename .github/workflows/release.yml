@@ -26,6 +26,9 @@ jobs:
           $p = Start-Process ./TokenTaskbar.exe -ArgumentList '--test' -Wait -PassThru
           if ($p.ExitCode -ne 0 -or -not (Test-Path layout-test.txt)) { throw 'Native tests failed' }
           Get-Content layout-test.txt
+      - name: Updater checks
+        shell: pwsh
+        run: ./source/test-update.ps1
       - name: Package
         shell: pwsh
         run: ./source/package-release.ps1 -Version '${{ github.ref_type == 'tag' && github.ref_name || 'dev' }}'

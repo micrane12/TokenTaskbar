@@ -6,7 +6,7 @@ $output = Join-Path $root 'release'
 $stage = Join-Path $output ('stage-' + [Guid]::NewGuid().ToString('N'))
 $package = Join-Path $stage 'TokenTaskbar'
 New-Item -ItemType Directory -Path $package -Force | Out-Null
-foreach ($name in @('TokenTaskbar.exe', 'TokenTaskbar.Collector.exe', '_internal', 'assets', 'README.md')) {
+foreach ($name in @('TokenTaskbar.exe', 'TokenTaskbar.Collector.exe', '_internal', 'assets', 'README.md', 'Update-TokenTaskbar.ps1')) {
     $item = Join-Path $root $name
     if (-not (Test-Path -LiteralPath $item)) { throw "Missing release component: $name" }
     Copy-Item -LiteralPath $item -Destination $package -Recurse -Force

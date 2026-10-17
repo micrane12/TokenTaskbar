@@ -58,3 +58,7 @@ Usage and settings share one window with **Usage** and **Settings** tabs. Clicki
 - **Start with Windows** adds or removes a Startup-folder shortcut.
 
 Changes are previews until you click **Save**; the footer shows "Not saved yet" meanwhile. **Undo changes**, Esc or closing the window returns the taskbar to the saved settings. Switching tabs keeps unsaved changes. **Reset to defaults** previews the defaults (Start with Windows unchanged); Save keeps them. Settings are stored locally in widget-settings.json beside the executable.
+
+## Updating
+
+From v0.1.5 onward, open Settings and click Check for updates. Save or undo pending settings first. A progress window downloads and verifies the latest release, updates files in place, and restarts the widget. Your saved preferences remain. Existing versions need one manual ZIP update to v0.1.5 to obtain the updater. The app folder must be writable. Failed installations retain a backup in the temporary update folder.

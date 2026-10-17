@@ -15,8 +15,8 @@ using System.Web.Script.Serialization;
 using System.Windows.Automation;
 using System.Windows.Forms;
 
-[assembly: System.Reflection.AssemblyVersion("0.1.4.0")]
-[assembly: System.Reflection.AssemblyFileVersion("0.1.4.0")]
+[assembly: System.Reflection.AssemblyVersion("0.1.5.0")]
+[assembly: System.Reflection.AssemblyFileVersion("0.1.5.0")]
 static class AppVersion {
     public static string Display {get {return "v"+typeof(AppVersion).Assembly.GetName().Version.ToString(3);}}
 }
@@ -218,7 +218,7 @@ class SettingsPage : UserControl {
         showClaude=new ToggleSwitch {AccessibleName="Show Claude"},showCodex=new ToggleSwitch {AccessibleName="Show Codex"},
         startup=new ToggleSwitch {AccessibleName="Start with Windows"},logos=new ToggleSwitch {AccessibleName="Show provider logos"};
     readonly Button nudgeLeft=new Button {Text="◀",AccessibleName="Nudge left 10 pixels"},nudgeRight=new Button {Text="▶",AccessibleName="Nudge right 10 pixels"},
-        undo=new Button {Text="Undo changes"};
+        undo=new Button {Text="Undo changes"},updateApp=new Button {Text="Check for updates"};
     public readonly Button SaveButton=new Button {Text="Save"};
     readonly LinkLabel nudgeReset=new LinkLabel {Text="Reset",AutoSize=true},reset=new LinkLabel {Text="Reset to defaults",AutoSize=true};
     readonly System.Windows.Forms.Timer preview=new System.Windows.Forms.Timer {Interval=300};
@@ -233,13 +233,13 @@ class SettingsPage : UserControl {
         enabled.Bounds=R(654,44,40,20);showClaude.Bounds=R(654,182,40,20);showCodex.Bounds=R(654,226,40,20);startup.Bounds=R(654,331,40,20);logos.Bounds=R(304,333,40,20);
         reset.Location=new Point(S(20),S(402));undo.Bounds=R(470,394,120,34);SaveButton.Bounds=R(598,394,112,34);
         foreach(Control c in new Control[]{size,nudge,position,nudgeReset,enabled,showClaude,showCodex,startup,logos}) c.BackColor=Art.Card;
-        foreach(var b in new[]{nudgeLeft,nudgeRight,undo,SaveButton}) {
+        foreach(var b in new[]{nudgeLeft,nudgeRight,undo,SaveButton,updateApp}) {
             b.FlatStyle=FlatStyle.Flat;b.FlatAppearance.BorderColor=Art.Line;b.BackColor=Art.Bg;b.ForeColor=Art.Ink;b.Cursor=Cursors.Hand;b.UseVisualStyleBackColor=false;
         }
         nudgeLeft.Font=nudgeRight.Font=new Font("Segoe UI Symbol",8);
         foreach(var link in new[]{nudgeReset,reset}) {link.LinkColor=Art.Muted;link.ActiveLinkColor=Art.Ink;link.VisitedLinkColor=Art.Muted;link.Font=Art.UiFont((float)Math.Round(12*k),false);}
         reset.BackColor=Art.Bg;
-        Controls.AddRange(new Control[]{size,position,nudgeLeft,nudge,nudgeRight,nudgeReset,logos,enabled,showClaude,showCodex,startup,reset,undo,SaveButton});
+        Controls.AddRange(new Control[]{size,position,nudgeLeft,nudge,nudgeRight,nudgeReset,logos,enabled,showClaude,showCodex,startup,reset,undo,SaveButton,updateApp});
         size.ValueChanged+=(s,e)=>Changed();nudge.ValueChanged+=(s,e)=>Changed();position.SelectedChanged+=(s,e)=>Changed();
         foreach(var t in new[]{enabled,showClaude,showCodex,startup,logos}) t.CheckedChanged+=(s,e)=>Changed();
         nudgeLeft.Click+=(s,e)=>Nudge(-1);nudgeRight.Click+=(s,e)=>Nudge(1);
@@ -251,6 +251,15 @@ class SettingsPage : UserControl {
             loading=false;Changed();
         };
         preview.Tick+=(s,e)=> {preview.Stop();widget.PreviewSettings(Read());};
+        updateApp.Bounds=R(20,440,160,32);
+        updateApp.Click+=(s,e)=> {
+            if(Dirty) {ShowError("Save or undo your changes first","Updates restart the widget; your saved settings are preserved.");return;}
+            try {
+                var script=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"Update-TokenTaskbar.ps1");
+                if(!File.Exists(script)) throw new FileNotFoundException();
+                Process.Start(new ProcessStartInfo("powershell.exe","-NoProfile -ExecutionPolicy Bypass -File \""+script+"\""){UseShellExecute=true});
+            } catch {ShowError("Couldn't start the updater","Extract the complete release ZIP including Update-TokenTaskbar.ps1.");}
+        };
         SaveButton.Click+=(s,e)=>Save();
         undo.Click+=(s,e)=> {Revert();Reload();};
         widget.PlacementChanged+=(s,e)=>Invalidate();
@@ -719,10 +728,10 @@ class Detail : Form {
         MaximizeBox=false; MinimizeBox=false; DoubleBuffered=true;
         using(var g=CreateGraphics()) k=g.DpiX/96f;
         Font=Art.UiFont((float)Math.Round(14*k),false);
-        ClientSize=new Size(S(730),S(506));
+        ClientSize=new Size(S(730),S(552));
         tabs.Bounds=R(470,16,240,34);tabs.BackColor=Art.Bg;Controls.Add(tabs);
         tabs.SelectedChanged+=(s,e)=>ShowTab(tabs.Selected);
-        settings=new SettingsPage(widget,k) {Bounds=new Rectangle(0,S(PageTop),S(730),S(506-PageTop)),Visible=false};
+        settings=new SettingsPage(widget,k) {Bounds=new Rectangle(0,S(PageTop),S(730),S(552-PageTop)),Visible=false};
         Controls.Add(settings);
         var close=new Button {Text="Close panel",Bounds=R(20,458,116,34)};
         close.Click+=(s,e)=>Close();
