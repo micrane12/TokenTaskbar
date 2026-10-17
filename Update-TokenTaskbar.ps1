@@ -41,12 +41,12 @@ try {
     $expected = ((Invoke-WebRequest $checksum.browser_download_url -UseBasicParsing).Content -split '\s+')[0]
     if ($expected -notmatch '^[a-fA-F0-9]{64}$' -or (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash -ne $expected) { throw 'Checksum verification failed. Existing files were not changed.' }
     Add-Type -AssemblyName System.IO.Compression.FileSystem
-    $unpack = Join-Path $stage 'unpacked'
+    $unpack = [IO.Path]::GetFullPath((Join-Path $stage 'unpacked'))
     $archive = [IO.Compression.ZipFile]::OpenRead($zip)
     try {
         foreach ($entry in $archive.Entries) {
             $target = [IO.Path]::GetFullPath((Join-Path $unpack $entry.FullName))
-            if (-not $target.StartsWith($unpack+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase) -or $entry.FullName.Contains(':')) { throw 'Unsafe archive entry.' }
+            if (-not $target.StartsWith($unpack+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase) -or $entry.FullName.Contains(':')) { throw ('Unsafe archive entry: '+$entry.FullName+'; target='+$target+'; root='+$unpack) }
         }
     } finally { $archive.Dispose() }
     Expand-Archive -LiteralPath $zip -DestinationPath $unpack
