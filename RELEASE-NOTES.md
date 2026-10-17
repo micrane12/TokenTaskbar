@@ -24,6 +24,6 @@ Displays the installed version in the window title and both panel tabs. Includes
 
 Percentage text is white below 60%, orange from 60%, and red from 80%. Percentage labels fit their content (including 100% and stale markers), with a small gap beside the progress bar. The bar and time row resize together.
 
-## v0.1.5
+## v0.1.6
 
 Settings now has Check for updates. It downloads the latest published ZIP and SHA-256 checksum, verifies the archive and application version before stopping the widget, backs up app files, replaces only application components in the same folder, and restarts. Saved settings, usage cache and startup registration are preserved. It attempts rollback on replacement failure. Download or validation failures leave the running app untouched.
