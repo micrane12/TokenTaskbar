@@ -15,8 +15,8 @@ using System.Web.Script.Serialization;
 using System.Windows.Automation;
 using System.Windows.Forms;
 
-[assembly: System.Reflection.AssemblyVersion("0.1.7.0")]
-[assembly: System.Reflection.AssemblyFileVersion("0.1.7.0")]
+[assembly: System.Reflection.AssemblyVersion("0.1.8.0")]
+[assembly: System.Reflection.AssemblyFileVersion("0.1.8.0")]
 static class AppVersion {
     public static string Display {get {return "v"+typeof(AppVersion).Assembly.GetName().Version.ToString(3);}}
 }
@@ -62,13 +62,38 @@ public static class Startup {
     public static bool Enabled {get {return File.Exists(ShortcutPath);}}
     public static void SetEnabled(bool enabled) {
         if(!enabled) {if(Enabled) File.Delete(ShortcutPath);return;}
+        Write(Application.ExecutablePath,AppDomain.CurrentDomain.BaseDirectory);
+    }
+    public static string Target {
+        get {
+            if(!Enabled) return null;
+            object shell=null,shortcut=null;
+            try {
+                shell=Activator.CreateInstance(Type.GetTypeFromProgID("WScript.Shell"));
+                shortcut=shell.GetType().InvokeMember("CreateShortcut",System.Reflection.BindingFlags.InvokeMethod,null,shell,new object[]{ShortcutPath});
+                return (string)shortcut.GetType().InvokeMember("TargetPath",System.Reflection.BindingFlags.GetProperty,null,shortcut,null);
+            } finally {
+                if(shortcut!=null && Marshal.IsComObject(shortcut)) Marshal.FinalReleaseComObject(shortcut);
+                if(shell!=null && Marshal.IsComObject(shell)) Marshal.FinalReleaseComObject(shell);
+            }
+        }
+    }
+    // A manual ZIP update into a new folder leaves the shortcut pointing at the old copy; follow this executable.
+    public static bool Repair() {
+        string target=Target;
+        if(target==null) return false;
+        try {if(string.Equals(Path.GetFullPath(target),Path.GetFullPath(Application.ExecutablePath),StringComparison.OrdinalIgnoreCase)) return false;} catch { }
+        SetEnabled(true);
+        return true;
+    }
+    internal static void Write(string targetPath,string workingDirectory) {
         object shell=null,shortcut=null;
         try {
             shell=Activator.CreateInstance(Type.GetTypeFromProgID("WScript.Shell"));
             shortcut=shell.GetType().InvokeMember("CreateShortcut",System.Reflection.BindingFlags.InvokeMethod,null,shell,new object[]{ShortcutPath});
             var type=shortcut.GetType();
-            type.InvokeMember("TargetPath",System.Reflection.BindingFlags.SetProperty,null,shortcut,new object[]{Application.ExecutablePath});
-            type.InvokeMember("WorkingDirectory",System.Reflection.BindingFlags.SetProperty,null,shortcut,new object[]{AppDomain.CurrentDomain.BaseDirectory});
+            type.InvokeMember("TargetPath",System.Reflection.BindingFlags.SetProperty,null,shortcut,new object[]{targetPath});
+            type.InvokeMember("WorkingDirectory",System.Reflection.BindingFlags.SetProperty,null,shortcut,new object[]{workingDirectory});
             type.InvokeMember("Description",System.Reflection.BindingFlags.SetProperty,null,shortcut,new object[]{"Launch Token Taskbar at Windows sign-in"});
             type.InvokeMember("Save",System.Reflection.BindingFlags.InvokeMethod,null,shortcut,null);
         } finally {
@@ -1053,7 +1078,10 @@ static class Program {
             try {
                 Startup.SetEnabled(false);if(Startup.Enabled) throw new Exception("Startup disable failed");
                 Startup.SetEnabled(true);if(!Startup.Enabled) throw new Exception("Startup enable failed");
-                File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"startup-test.txt"),"PASS: startup toggle off/on; original state restored");
+                if(Startup.Repair()) throw new Exception("Startup repair rewrote a valid shortcut");
+                Startup.Write(@"C:\TokenTaskbar-moved\TokenTaskbar.exe",@"C:\TokenTaskbar-moved\");
+                if(!Startup.Repair() || !string.Equals(Startup.Target,Application.ExecutablePath,StringComparison.OrdinalIgnoreCase)) throw new Exception("Startup repair failed");
+                File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"startup-test.txt"),"PASS: startup toggle off/on; stale shortcut repaired; original state restored");
             } finally {Startup.SetEnabled(previous);}
             return;
         }
@@ -1152,6 +1180,7 @@ static class Program {
         bool created; using(var mutex=new Mutex(true,"Local\\TokenTaskbar-2026",out created))
         using(var request=new EventWaitHandle(false,EventResetMode.AutoReset,"Local\\TokenTaskbar-Open")) {
             if(!created) {request.Set();return;}
+            try {if(Startup.Repair()) File.AppendAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"lifecycle.log"),DateTime.UtcNow.ToString("o")+" pid="+Process.GetCurrentProcess().Id+" Repointed startup shortcut"+Environment.NewLine);} catch { }
             Application.EnableVisualStyles(); Application.SetCompatibleTextRenderingDefault(false);
             // The process lifetime is independent of Explorer's child HWND.
             using(var context=new ApplicationContext()) {

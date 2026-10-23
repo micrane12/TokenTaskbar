@@ -27,3 +27,7 @@ Percentage text is white below 60%, orange from 60%, and red from 80%. Percentag
 ## v0.1.7
 
 Settings now has Check for updates. It downloads the latest published ZIP and SHA-256 checksum, verifies the archive and application version before stopping the widget, backs up app files, replaces only application components in the same folder, and restarts. Saved settings, usage cache and startup registration are preserved. It attempts rollback on replacement failure. Download or validation failures leave the running app untouched.
+
+## v0.1.8
+
+Fixes Start with Windows silently failing after a manual update into a new folder (for example, extracting v0.1.7 after deleting the v0.1.3 folder). On launch, an existing Startup shortcut that points to another location is repointed at the running TokenTaskbar.exe. Run v0.1.8 once from its folder and a broken shortcut repairs itself.
