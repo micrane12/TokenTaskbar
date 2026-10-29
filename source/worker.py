@@ -80,6 +80,12 @@ def account_status(block=False):
         # Seed the standalone readers too, preserving the provider's retry deadline
         # if Bridge disappears. Do not trigger a separate provider request here.
         for key, module in (("claude", cc_account), ("codex", codex_account)):
+            if key == "claude" and shared[key].get("state") in (
+                    "expired", "no-credentials", "auth-rejected"):
+                # An older Bridge may retain an auth failure after Claude Code
+                # renews. Let the standalone reader observe the new credentials.
+                shared[key] = cc_account.status(block)
+                continue
             with module._lock:
                 module._cache = dict(shared[key])
                 module._next_fetch = max(time.time() + module.REFRESH_SECONDS,

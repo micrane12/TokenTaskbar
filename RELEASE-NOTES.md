@@ -1,5 +1,9 @@
 # TokenTaskbar preview
 
+## v0.1.9
+
+Claude's Reconnect button opens Claude Code's usage screen instead of forcing a new browser login. This lets the CLI renew its saved session. Standard Windows native/npm launchers are found even when missing from the startup PATH. The widget detects changed credentials promptly, recovers from authentication errors cached by an older Bridge, respects CLAUDE_CONFIG_DIR, and distinguishes expired sessions, rejected sign-ins, offline errors and forbidden access. Existing API rate-limit backoff is preserved. This is a one-click reconnect flow, not unattended renewal at boot.
+
 Windows 11 x64 taskbar usage display for Claude and Codex, with a usage panel, reset countdowns and local reset times, size and position settings, a startup toggle, Renew login and Refresh controls.
 
 Download the Windows ZIP, extract all files into a writable folder, and run TokenTaskbar.exe. No Python or Windhawk installation is required. Existing Claude Code and Codex CLI sign-ins are required for account usage. Use the tray icon to open the panel.

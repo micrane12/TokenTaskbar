@@ -49,7 +49,8 @@ from typing import Dict, List, Optional
 from urllib import error as _urlerror
 from urllib import request as _urlrequest
 
-CRED_PATH = os.path.join(os.path.expanduser("~"), ".claude", ".credentials.json")
+CRED_PATH = os.path.join(os.environ.get("CLAUDE_CONFIG_DIR") or
+                         os.path.join(os.path.expanduser("~"), ".claude"), ".credentials.json")
 USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
 
 REFRESH_SECONDS = 60.0          # how often we may hit the account
@@ -67,6 +68,20 @@ _next_fetch = 0.0
 _inflight = False
 _force_lock = threading.Lock()  # serialises manual refreshes; see refresh_now
 _last_forced = 0.0
+_credential_stamp = None
+
+
+def _credentials_changed():
+    """Watch metadata only; never copy tokens into diagnostics or usage caches."""
+    global _credential_stamp
+    try:
+        info = os.stat(CRED_PATH)
+        stamp = (info.st_mtime_ns, info.st_size)
+    except OSError:
+        stamp = None
+    changed = stamp != _credential_stamp
+    _credential_stamp = stamp
+    return changed
 
 
 # ── credentials (read-only) ──────────────────────────────────────────────────
@@ -217,7 +232,7 @@ def _fetch() -> Dict:
             return {"ok": False, "state": "rate-limited",
                     "retry_after": retry or ERROR_BACKOFF,
                     "detail": "HTTP 429 - the usage API is rate-limiting"}
-        state = "expired" if e.code in (401, 403) else "http-error"
+        state = {401: "auth-rejected", 403: "forbidden"}.get(e.code, "http-error")
         return {"ok": False, "state": state, "detail": "HTTP %d" % e.code}
     except Exception as e:                    # network down, DNS, timeout, bad JSON
         return {"ok": False, "state": "offline", "detail": str(e)[:120]}
@@ -259,7 +274,14 @@ def status(block: bool = False) -> Dict:
     by the warm-up thread), so the footer poll stays instant."""
     global _inflight
     with _lock:
-        due = time.time() >= _next_fetch and not _inflight
+        changed = _credentials_changed()
+        if changed and _cache.get("state") in ("expired", "no-credentials", "auth-rejected"):
+            # A CLI renewal should recover on the next poll, not after the
+            # previous authentication backoff. Never bypass a provider 429.
+            _next_due = 0.0
+        else:
+            _next_due = _next_fetch
+        due = time.time() >= _next_due and not _inflight
         if due:
             _inflight = True
     if due:

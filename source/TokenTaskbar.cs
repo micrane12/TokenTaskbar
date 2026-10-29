@@ -15,8 +15,8 @@ using System.Web.Script.Serialization;
 using System.Windows.Automation;
 using System.Windows.Forms;
 
-[assembly: System.Reflection.AssemblyVersion("0.1.8.0")]
-[assembly: System.Reflection.AssemblyFileVersion("0.1.8.0")]
+[assembly: System.Reflection.AssemblyVersion("0.1.9.0")]
+[assembly: System.Reflection.AssemblyFileVersion("0.1.9.0")]
 static class AppVersion {
     public static string Display {get {return "v"+typeof(AppVersion).Assembly.GetName().Version.ToString(3);}}
 }
@@ -767,7 +767,7 @@ class Detail : Form {
         usageControls.AddRange(new Control[]{close,refresh,quit});
         for(int i=0;i<2;i++) {
             string provider=i==0 ? "claude" : "codex";
-            var renew=new Button {Text="Renew login",Bounds=R(230+i*354,141,110,27)};
+            var renew=new Button {Text=provider=="claude" ? "Reconnect" : "Renew login",Bounds=R(230+i*354,141,110,27)};
             renew.Click+=(s,e)=>RenewLogin(provider);usageControls.Add(renew);
         }
         foreach(var c in usageControls) {
@@ -792,7 +792,14 @@ class Detail : Form {
     }
     void RenewLogin(string provider) {
         // Delegate authentication to the installed CLI; never handle credentials here.
-        string command=provider=="claude" ? "claude auth login" : "codex login";
+        // Opening Claude Code allows its own session renewal; do not force a
+        // browser login merely because the short-lived access token expired.
+        string command=provider=="claude" ?
+            "$cli=Get-Command claude -ErrorAction SilentlyContinue | Select-Object -First 1; "+
+            "$candidates=@((Join-Path $env:USERPROFILE '.local\\bin\\claude.exe'),(Join-Path $env:APPDATA 'npm\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe'),(Join-Path $env:APPDATA 'npm\\claude.cmd')); "+
+            "$path=$candidates | Where-Object {Test-Path -LiteralPath $_} | Select-Object -First 1; "+
+            "if(-not $path -and $cli){$path=$cli.Source}; if(-not $path){throw 'Claude Code was not found. Install Claude Code, then reconnect.'}; "+
+            "Write-Host 'Claude Code will reconnect using its saved session. If it asks you to sign in, follow its instructions. Use /exit when finished.'; & $path /usage" : "codex login";
         string script="$ErrorActionPreference='Stop'; try { "+command+" } catch { Write-Host $_.Exception.Message }; Read-Host 'Press Enter to close. The widget will update on its next account check'";
         try {
             Process.Start(new ProcessStartInfo(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),"WindowsPowerShell\\v1.0\\powershell.exe"),"-NoProfile -Command \""+script+"\"") {UseShellExecute=true,WorkingDirectory=Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)});
@@ -870,6 +877,14 @@ class Widget : Form {
         if(Data==null) return "Connecting to local agents…";
         if(Art.Now-Data.generated>35) return "Offline · last reading retained";
         if(p==null) return "Agent unavailable";
+        if(p.id=="claude") {
+            string retained=p.observed>0 ? " · saved "+Math.Max(0,(int)((Art.Now-p.observed)/60))+"m ago" : "";
+            if(p.state=="expired") return "Session expired · Reconnect in Claude Code"+retained;
+            if(p.state=="no-credentials" || p.state=="auth-rejected") return "Sign-in required · Reconnect Claude"+retained;
+            if(p.state=="forbidden") return "Usage access denied · check Claude account"+retained;
+            if(p.state=="offline") return "Claude offline · retrying"+retained;
+            if(p.state=="rate-limited") return "Claude rate-limited · retrying later"+retained;
+        }
         if(p.observed<=0) return p.state=="loading" ? "Connecting to account…" : "Account unavailable · "+p.state;
         int age=Math.Max(0,(int)((Art.Now-p.observed)/60));
         return (Art.Stale(Data,p) ? "Stale · " : "Updated · ")+age+"m ago · "+p.source;

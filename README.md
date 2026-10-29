@@ -59,6 +59,14 @@ Usage and settings share one window with **Usage** and **Settings** tabs. Clicki
 
 Changes are previews until you click **Save**; the footer shows "Not saved yet" meanwhile. **Undo changes**, Esc or closing the window returns the taskbar to the saved settings. Switching tabs keeps unsaved changes. **Reset to defaults** previews the defaults (Start with Windows unchanged); Save keeps them. Settings are stored locally in widget-settings.json beside the executable.
 
-## Updating
+## Claude session renewal
+
+Claude's access token can expire while the PC is off even though the saved login is still usable. Click **Reconnect** in the Claude card to open Claude Code's `/usage` screen. Claude Code renews its own saved session; follow its sign-in instructions only if the saved session is no longer accepted. Use `/exit` when finished. The widget detects changed credentials on its next 10-second poll and retries without waiting out the previous authentication backoff. It still respects API rate limits.
+
+Reconnect also finds standard native and npm installations when the Windows startup PATH is missing Claude Code. `CLAUDE_CONFIG_DIR` is respected by the standalone Claude reader. Authentication failures cached by an older Chat Bridge fall back to the standalone reader. Offline, expired-session, rejected-login and forbidden-access states are displayed separately, with the age of any retained reading.
+
+Renewal is user-initiated, not unattended at boot: the CLI has no dedicated silent-renew command. TokenTaskbar never rotates or writes Claude Code credentials or sends a model prompt to renew them.
+
+## Updating the application
 
 From v0.1.7 onward, open Settings and click Check for updates. Save or undo pending settings first. A progress window downloads and verifies the latest release, updates files in place, and restarts the widget. Your saved preferences remain. Existing versions need one manual ZIP update to v0.1.7 to obtain the updater. The app folder must be writable. Failed installations retain a backup in the temporary update folder.
