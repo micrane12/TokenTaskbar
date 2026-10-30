@@ -7,6 +7,9 @@ Portable Windows 11 x64 taskbar widget for Claude and Codex account usage.
 1. Extract the entire ZIP into a writable folder.
 2. Run `TokenTaskbar.exe`. Keep `TokenTaskbar.Collector.exe` and `_internal` beside it.
 3. Claude and Codex appear together. Each compact chip shows five-hour usage and reset time, followed by weekly usage and reset time. Close panel keeps the widget running; Quit widget exits it. Running the executable again opens the existing panel.
+4. After the first launch, press the Windows key and search **Token Timer** or **TokenTaskbar**. The app creates a **Token Timer - TokenTaskbar** shortcut in your personal Start menu, with its orange/blue application icon. Windows Search may take a moment to index it. If you move the extracted folder, run the executable from its new location once to repair the shortcut.
+
+Start menu registration does not enable Start with Windows. To remove the portable app, turn off Start with Windows if enabled, quit it, remove **Token Timer - TokenTaskbar** from your Start menu Programs folder, and delete the extracted folder.
 
 Python and Windhawk do not need to be installed. The included collector carries its Python runtime; the UI uses Windows' .NET Framework. Target: Windows 11 x64, standard horizontal primary taskbar. ARM64, other Windows versions, secondary monitors, and customized taskbars have not been verified. This unsigned development build may receive a Windows reputation prompt.
 

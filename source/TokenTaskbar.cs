@@ -15,8 +15,8 @@ using System.Web.Script.Serialization;
 using System.Windows.Automation;
 using System.Windows.Forms;
 
-[assembly: System.Reflection.AssemblyVersion("0.1.9.0")]
-[assembly: System.Reflection.AssemblyFileVersion("0.1.9.0")]
+[assembly: System.Reflection.AssemblyVersion("0.1.10.0")]
+[assembly: System.Reflection.AssemblyFileVersion("0.1.10.0")]
 static class AppVersion {
     public static string Display {get {return "v"+typeof(AppVersion).Assembly.GetName().Version.ToString(3);}}
 }
@@ -96,6 +96,31 @@ public static class Startup {
             type.InvokeMember("WorkingDirectory",System.Reflection.BindingFlags.SetProperty,null,shortcut,new object[]{workingDirectory});
             type.InvokeMember("Description",System.Reflection.BindingFlags.SetProperty,null,shortcut,new object[]{"Launch Token Taskbar at Windows sign-in"});
             type.InvokeMember("Save",System.Reflection.BindingFlags.InvokeMethod,null,shortcut,null);
+        } finally {
+            if(shortcut!=null && Marshal.IsComObject(shortcut)) Marshal.FinalReleaseComObject(shortcut);
+            if(shell!=null && Marshal.IsComObject(shell)) Marshal.FinalReleaseComObject(shell);
+        }
+    }
+}
+public static class StartMenuShortcut {
+    public static string ShortcutPath {get {return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs),"Token Timer - TokenTaskbar.lnk");}}
+    public static bool Ensure(string shortcutPath,string executablePath) {
+        object shell=null,shortcut=null;
+        try {
+            shell=Activator.CreateInstance(Type.GetTypeFromProgID("WScript.Shell"));
+            shortcut=shell.GetType().InvokeMember("CreateShortcut",System.Reflection.BindingFlags.InvokeMethod,null,shell,new object[]{shortcutPath});
+            var type=shortcut.GetType();
+            string workingDirectory=Path.GetDirectoryName(executablePath),icon=executablePath+",0";
+            string description="TokenTaskbar: Claude and Codex token timer and usage";
+            var properties=new Dictionary<string,string> {{"TargetPath",executablePath},{"WorkingDirectory",workingDirectory},{"IconLocation",icon},{"Description",description},{"Arguments",""}};
+            bool changed=!File.Exists(shortcutPath);
+            foreach(var pair in properties) {
+                string value=(string)type.InvokeMember(pair.Key,System.Reflection.BindingFlags.GetProperty,null,shortcut,null);
+                if(!string.Equals(value,pair.Value,StringComparison.OrdinalIgnoreCase)) changed=true;
+                type.InvokeMember(pair.Key,System.Reflection.BindingFlags.SetProperty,null,shortcut,new object[]{pair.Value});
+            }
+            if(changed) type.InvokeMember("Save",System.Reflection.BindingFlags.InvokeMethod,null,shortcut,null);
+            return changed;
         } finally {
             if(shortcut!=null && Marshal.IsComObject(shortcut)) Marshal.FinalReleaseComObject(shortcut);
             if(shell!=null && Marshal.IsComObject(shell)) Marshal.FinalReleaseComObject(shell);
@@ -549,6 +574,9 @@ static class Art {
         using(var brush=new SolidBrush(color)) g.FillRectangle(brush,Snap(g,new RectangleF(x,top,width,bottom-top)));
     }
     public static Icon TrayIcon() {
+        using(var stream=typeof(Art).Assembly.GetManifestResourceStream("TokenTaskbar.App.ico")) {
+            if(stream!=null) using(var icon=new Icon(stream,32,32)) return (Icon)icon.Clone();
+        }
         using(var bitmap=new Bitmap(32,32,PixelFormat.Format32bppArgb)) {
             using(var g=Graphics.FromImage(bitmap)) {
                 g.Clear(Color.Transparent);g.SmoothingMode=SmoothingMode.AntiAlias;
@@ -1195,6 +1223,9 @@ static class Program {
         bool created; using(var mutex=new Mutex(true,"Local\\TokenTaskbar-2026",out created))
         using(var request=new EventWaitHandle(false,EventResetMode.AutoReset,"Local\\TokenTaskbar-Open")) {
             if(!created) {request.Set();return;}
+            try {StartMenuShortcut.Ensure(StartMenuShortcut.ShortcutPath,Application.ExecutablePath);} catch(Exception ex) {
+                try {File.AppendAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"lifecycle.log"),DateTime.UtcNow.ToString("o")+" Start menu shortcut unavailable: "+ex.GetType().Name+Environment.NewLine);} catch { }
+            }
             try {if(Startup.Repair()) File.AppendAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"lifecycle.log"),DateTime.UtcNow.ToString("o")+" pid="+Process.GetCurrentProcess().Id+" Repointed startup shortcut"+Environment.NewLine);} catch { }
             Application.EnableVisualStyles(); Application.SetCompatibleTextRenderingDefault(false);
             // The process lifetime is independent of Explorer's child HWND.

@@ -29,6 +29,9 @@ jobs:
       - name: Updater checks
         shell: pwsh
         run: ./source/test-update.ps1
+      - name: Start menu and icon checks
+        shell: pwsh
+        run: ./source/test-start-menu.ps1
       - name: Package
         shell: pwsh
         run: ./source/package-release.ps1 -Version '${{ github.ref_type == 'tag' && github.ref_name || 'dev' }}'
