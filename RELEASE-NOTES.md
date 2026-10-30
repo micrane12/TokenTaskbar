@@ -1,5 +1,9 @@
 # TokenTaskbar preview
 
+## v0.1.11
+
+Settings → Agents now has separate **Show**, **Icon**, and **Name** switches for Claude and Codex. Hide either agent's icon or name independently while retaining usage and reset times. The widget narrows to reclaim the hidden header space. Preview, Save, Undo and Reset to defaults include the new settings; upgrades preserve the previous shared hidden-logo preference. All sixteen icon/name combinations are checked for persistence, layout, transparency and visible usage bars.
+
 ## v0.1.10
 
 The first normal launch creates **Token Timer - TokenTaskbar** in the current user's Start menu, making the portable download discoverable through Windows Search. Launching from a moved folder repairs the shortcut. The executable, shortcut, tray and panel share an orange/blue application icon with multiple sizes for Windows scaling. Start with Windows remains optional and independent.

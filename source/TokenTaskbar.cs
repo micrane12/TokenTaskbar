@@ -15,8 +15,8 @@ using System.Web.Script.Serialization;
 using System.Windows.Automation;
 using System.Windows.Forms;
 
-[assembly: System.Reflection.AssemblyVersion("0.1.10.0")]
-[assembly: System.Reflection.AssemblyFileVersion("0.1.10.0")]
+[assembly: System.Reflection.AssemblyVersion("0.1.11.0")]
+[assembly: System.Reflection.AssemblyFileVersion("0.1.11.0")]
 static class AppVersion {
     public static string Display {get {return "v"+typeof(AppVersion).Assembly.GetName().Version.ToString(3);}}
 }
@@ -32,6 +32,10 @@ public class WidgetSettings {
     public int SizePercent=100, Offset=0;
     public string Position="Left";
     public bool ShowClaude=true, ShowCodex=true, Enabled=true, ShowLogos=true;
+    public bool ShowClaudeIcon=true, ShowCodexIcon=true, ShowClaudeLabel=true, ShowCodexLabel=true;
+    // Keep the old shared logo flag readable for upgrades from earlier releases.
+    public bool IconVisible(string id) {return ShowLogos && (id=="claude" ? ShowClaudeIcon : ShowCodexIcon);}
+    public bool LabelVisible(string id) {return id=="claude" ? ShowClaudeLabel : ShowCodexLabel;}
     public void Normalize() {
         SizePercent=Math.Max(70,Math.Min(125,SizePercent));Offset=Math.Max(-400,Math.Min(400,Offset));
         if(Position!="Left" && Position!="Center" && Position!="Right") Position="Left";
@@ -45,7 +49,9 @@ public class WidgetSettings {
     public WidgetSettings Clone() {return (WidgetSettings)MemberwiseClone();}
     public bool SameAs(WidgetSettings other) {
         return other!=null && SizePercent==other.SizePercent && Offset==other.Offset && Position==other.Position
-            && ShowClaude==other.ShowClaude && ShowCodex==other.ShowCodex && Enabled==other.Enabled && ShowLogos==other.ShowLogos;
+            && ShowClaude==other.ShowClaude && ShowCodex==other.ShowCodex && Enabled==other.Enabled
+            && IconVisible("claude")==other.IconVisible("claude") && IconVisible("codex")==other.IconVisible("codex")
+            && ShowClaudeLabel==other.ShowClaudeLabel && ShowCodexLabel==other.ShowCodexLabel;
     }
     public static WidgetSettings Load(string path) {
         try {var v=new JavaScriptSerializer().Deserialize<WidgetSettings>(File.ReadAllText(path));if(v!=null){v.Normalize();return v;}} catch { }
@@ -266,7 +272,9 @@ class SettingsPage : UserControl {
     readonly Segmented position=new Segmented(new[]{"Left","Center","Right"}) {AccessibleName="Taskbar position"};
     readonly ToggleSwitch enabled=new ToggleSwitch {AccessibleName="Show widget on taskbar"},
         showClaude=new ToggleSwitch {AccessibleName="Show Claude"},showCodex=new ToggleSwitch {AccessibleName="Show Codex"},
-        startup=new ToggleSwitch {AccessibleName="Start with Windows"},logos=new ToggleSwitch {AccessibleName="Show provider logos"};
+        startup=new ToggleSwitch {AccessibleName="Start with Windows"},
+        claudeIcon=new ToggleSwitch {AccessibleName="Show Claude icon"},codexIcon=new ToggleSwitch {AccessibleName="Show Codex icon"},
+        claudeLabel=new ToggleSwitch {AccessibleName="Show Claude name"},codexLabel=new ToggleSwitch {AccessibleName="Show Codex name"};
     readonly Button nudgeLeft=new Button {Text="◀",AccessibleName="Nudge left 10 pixels"},nudgeRight=new Button {Text="▶",AccessibleName="Nudge right 10 pixels"},
         undo=new Button {Text="Undo changes"},updateApp=new Button {Text="Check for updates"};
     public readonly Button SaveButton=new Button {Text="Save"};
@@ -280,24 +288,27 @@ class SettingsPage : UserControl {
         widget=owner;k=scale;DoubleBuffered=true;BackColor=Art.Bg;ForeColor=Art.Ink;Font=Art.UiFont((float)Math.Round(14*k),false);
         size.Bounds=R(36,64,308,24);position.Bounds=R(36,168,308,34);
         nudgeLeft.Bounds=R(36,250,32,32);nudge.Bounds=R(78,254,224,24);nudgeRight.Bounds=R(312,250,32,32);nudgeReset.Location=new Point(S(196),S(228));
-        enabled.Bounds=R(654,44,40,20);showClaude.Bounds=R(654,182,40,20);showCodex.Bounds=R(654,226,40,20);startup.Bounds=R(654,331,40,20);logos.Bounds=R(304,333,40,20);
+        enabled.Bounds=R(654,44,40,20);showClaude.Bounds=R(538,182,34,20);showCodex.Bounds=R(538,226,34,20);startup.Bounds=R(654,331,40,20);
+        claudeIcon.Bounds=R(598,182,34,20);codexIcon.Bounds=R(598,226,34,20);
+        claudeLabel.Bounds=R(658,182,34,20);codexLabel.Bounds=R(658,226,34,20);
         reset.Location=new Point(S(20),S(402));undo.Bounds=R(470,394,120,34);SaveButton.Bounds=R(598,394,112,34);
-        foreach(Control c in new Control[]{size,nudge,position,nudgeReset,enabled,showClaude,showCodex,startup,logos}) c.BackColor=Art.Card;
+        foreach(Control c in new Control[]{size,nudge,position,nudgeReset,enabled,showClaude,showCodex,startup,claudeIcon,codexIcon,claudeLabel,codexLabel}) c.BackColor=Art.Card;
         foreach(var b in new[]{nudgeLeft,nudgeRight,undo,SaveButton,updateApp}) {
             b.FlatStyle=FlatStyle.Flat;b.FlatAppearance.BorderColor=Art.Line;b.BackColor=Art.Bg;b.ForeColor=Art.Ink;b.Cursor=Cursors.Hand;b.UseVisualStyleBackColor=false;
         }
         nudgeLeft.Font=nudgeRight.Font=new Font("Segoe UI Symbol",8);
         foreach(var link in new[]{nudgeReset,reset}) {link.LinkColor=Art.Muted;link.ActiveLinkColor=Art.Ink;link.VisitedLinkColor=Art.Muted;link.Font=Art.UiFont((float)Math.Round(12*k),false);}
         reset.BackColor=Art.Bg;
-        Controls.AddRange(new Control[]{size,position,nudgeLeft,nudge,nudgeRight,nudgeReset,logos,enabled,showClaude,showCodex,startup,reset,undo,SaveButton,updateApp});
+        Controls.AddRange(new Control[]{size,position,nudgeLeft,nudge,nudgeRight,nudgeReset,claudeIcon,codexIcon,claudeLabel,codexLabel,enabled,showClaude,showCodex,startup,reset,undo,SaveButton,updateApp});
         size.ValueChanged+=(s,e)=>Changed();nudge.ValueChanged+=(s,e)=>Changed();position.SelectedChanged+=(s,e)=>Changed();
-        foreach(var t in new[]{enabled,showClaude,showCodex,startup,logos}) t.CheckedChanged+=(s,e)=>Changed();
+        foreach(var t in new[]{enabled,showClaude,showCodex,startup,claudeIcon,codexIcon,claudeLabel,codexLabel}) t.CheckedChanged+=(s,e)=>Changed();
         nudgeLeft.Click+=(s,e)=>Nudge(-1);nudgeRight.Click+=(s,e)=>Nudge(1);
         nudgeReset.LinkClicked+=(s,e)=>nudge.Value=0;
         reset.LinkClicked+=(s,e)=> {
             var d=new WidgetSettings();loading=true;
             size.Value=d.SizePercent;position.Selected=d.Position;nudge.Value=d.Offset;
-            enabled.Checked=true;showClaude.Checked=true;showCodex.Checked=true;logos.Checked=true;
+            enabled.Checked=true;showClaude.Checked=true;showCodex.Checked=true;
+            claudeIcon.Checked=true;codexIcon.Checked=true;claudeLabel.Checked=true;codexLabel.Checked=true;
             loading=false;Changed();
         };
         preview.Tick+=(s,e)=> {preview.Stop();widget.PreviewSettings(Read());};
@@ -316,7 +327,8 @@ class SettingsPage : UserControl {
     }
     WidgetSettings Read() {
         return new WidgetSettings {SizePercent=size.Value,Position=position.Selected,Offset=nudge.Value,
-            ShowClaude=showClaude.Checked,ShowCodex=showCodex.Checked,Enabled=enabled.Checked,ShowLogos=logos.Checked};
+            ShowClaude=showClaude.Checked,ShowCodex=showCodex.Checked,Enabled=enabled.Checked,
+            ShowClaudeIcon=claudeIcon.Checked,ShowCodexIcon=codexIcon.Checked,ShowClaudeLabel=claudeLabel.Checked,ShowCodexLabel=codexLabel.Checked};
     }
     bool Dirty {get {return !Read().SameAs(widget.SavedSettings) || startup.Checked!=startupSaved;}}
     void Nudge(int direction) {nudge.Value+=direction*((ModifierKeys & Keys.Shift)!=0 ? 1 : 10);}
@@ -329,7 +341,9 @@ class SettingsPage : UserControl {
         SaveButton.Enabled=dirty;undo.Enabled=dirty;
         SaveButton.BackColor=dirty ? Art.Accent("codex") : Art.Card;SaveButton.ForeColor=dirty ? Art.Bg : Art.Muted;SaveButton.FlatAppearance.BorderSize=dirty ? 0 : 1;
         undo.ForeColor=dirty ? Art.Ink : Art.Muted;
-        foreach(Control c in new Control[]{size,position,nudge,nudgeLeft,nudgeRight,nudgeReset,logos}) c.Enabled=on;
+        foreach(Control c in new Control[]{size,position,nudge,nudgeLeft,nudgeRight,nudgeReset}) c.Enabled=on;
+        claudeIcon.Enabled=claudeLabel.Enabled=on && showClaude.Checked;
+        codexIcon.Enabled=codexLabel.Enabled=on && showCodex.Checked;
         nudgeReset.Visible=nudge.Value!=0;
         showClaude.Enabled=on && !(showClaude.Checked && !showCodex.Checked);
         showCodex.Enabled=on && !(showCodex.Checked && !showClaude.Checked);
@@ -350,7 +364,9 @@ class SettingsPage : UserControl {
     public void Reload() {
         var saved=widget.SavedSettings;loading=true;
         size.Value=saved.SizePercent;position.Selected=saved.Position;nudge.Value=saved.Offset;
-        enabled.Checked=saved.Enabled;showClaude.Checked=saved.ShowClaude;showCodex.Checked=saved.ShowCodex;logos.Checked=saved.ShowLogos;
+        enabled.Checked=saved.Enabled;showClaude.Checked=saved.ShowClaude;showCodex.Checked=saved.ShowCodex;
+        claudeIcon.Checked=saved.IconVisible("claude");codexIcon.Checked=saved.IconVisible("codex");
+        claudeLabel.Checked=saved.ShowClaudeLabel;codexLabel.Checked=saved.ShowCodexLabel;
         startupSaved=Startup.Enabled;startup.Checked=startupSaved;loading=false;errorTitle="";UpdateChrome();
     }
     static void Divider(Graphics g,int left,int right,int y) {using(var pen=new Pen(Color.FromArgb(38,38,44))) g.DrawLine(pen,left,y,right,y);}
@@ -376,7 +392,7 @@ class SettingsPage : UserControl {
         Art.Text(g,(nudge.Value>0 ? "+" : "")+nudge.Value+" px",13,label,new Rectangle(244,226,100,22),true,true);
         Art.Text(g,"Arrows move 10 px. Hold Shift for 1 px.",12,Art.Muted,new Rectangle(36,288,308,18));
         Divider(g,20,360,320);
-        Art.Text(g,"Show provider logos",13,label,new Rectangle(36,332,250,22),true);
+        Art.Text(g,"Set icons and names under Agents →",12,Art.Muted,new Rectangle(36,332,308,22));
 
         // Right column: on/off and where it landed, providers, startup.
         Group(g,"WIDGET",380,8);
@@ -395,13 +411,15 @@ class SettingsPage : UserControl {
         Art.Text(g,title,13,Art.Ink,new Rectangle(418,86,276,20),true);
         Art.Text(g,detail,11,Art.Muted,new Rectangle(418,105,276,16));
 
-        Group(g,"PROVIDERS",380,150);
+        Group(g,"AGENTS",380,150);
+        Art.Text(g,"Show",11,Art.Muted,new Rectangle(532,150,46,16),true);
+        Art.Text(g,"Icon",11,Art.Muted,new Rectangle(594,150,46,16),true);
+        Art.Text(g,"Name",11,Art.Muted,new Rectangle(650,150,46,16),true);
         Art.Round(g,Art.Card,new Rectangle(380,170,330,108),10);
-        Art.Logo(g,"claude",new Rectangle(396,181,20,20));Art.Text(g,"Show Claude",13,label,new Rectangle(426,180,200,22),true);
+        Art.Logo(g,"claude",new Rectangle(396,181,20,20));Art.Text(g,"Claude",13,label,new Rectangle(426,180,104,22),true);
         Divider(g,380,710,214);
-        Art.Logo(g,"codex",new Rectangle(396,225,20,20));Art.Text(g,"Show Codex",13,label,new Rectangle(426,224,200,22),true);
-        Art.Text(g,showClaude.Checked && showCodex.Checked ? "Hiding one makes the widget about half as wide." : "At least one provider stays on.",
-            12,Art.Muted,new Rectangle(396,254,300,18));
+        Art.Logo(g,"codex",new Rectangle(396,225,20,20));Art.Text(g,"Codex",13,label,new Rectangle(426,224,104,22),true);
+        Art.Text(g,"Icons and names can be hidden separately.",11,Art.Muted,new Rectangle(396,254,300,18));
 
         Group(g,"STARTUP",380,292);
         Art.Round(g,Art.Card,new Rectangle(380,312,330,58),10);
@@ -593,11 +611,16 @@ static class Art {
         Muted = Color.FromArgb(156,156,168), Ink = Color.FromArgb(242,242,245), Line = Color.FromArgb(53,53,60);
     public static readonly string[] AllProviders={"claude","codex"};
     // Logical strip width: both providers, or one provider block when the other is hidden.
-    // Without logos each provider block is LogoSpace narrower.
-    public const int LogoSpace=31;
-    public static int LogicalWidth(string[] ids,bool logos=true) {
+    // Reclaim each provider's icon/name space independently.
+    public const int LogoSpace=31,LabelSpace=64;
+    static bool IconVisible(string id,bool logos,WidgetSettings appearance) {return appearance==null ? logos : appearance.IconVisible(id);}
+    static int HeaderCut(string id,bool logos,WidgetSettings appearance) {
+        return (IconVisible(id,logos,appearance) ? 0 : LogoSpace)+(appearance!=null && !appearance.LabelVisible(id) ? LabelSpace : 0);
+    }
+    public static int LogicalWidth(string[] ids,bool logos=true,WidgetSettings appearance=null) {
+        ids=ids ?? AllProviders;
         int count=ids!=null && ids.Length==1 ? 1 : 2;
-        return (count==1 ? 444 : Widget.StripWidth)-(logos ? 0 : LogoSpace*count);
+        return (count==1 ? 444 : Widget.StripWidth)-ids.Sum(id=>HeaderCut(id,logos,appearance));
     }
     public static Color Accent(string id) { return id == "claude" ? Color.FromArgb(216,135,99) : Color.FromArgb(130,148,232); }
     public static double Now { get { return (DateTime.UtcNow-new DateTime(1970,1,1)).TotalSeconds; } }
@@ -624,10 +647,11 @@ static class Art {
     public static bool Stale(Snapshot data, Provider p) {
         return data==null || Now-data.generated>35 || p==null || p.stale || p.state!="ok";
     }
-    public static string FrameKey(Snapshot data,int width,int height,bool hover,string[] ids=null,bool logos=true) {
+    public static string FrameKey(Snapshot data,int width,int height,bool hover,string[] ids=null,bool logos=true,WidgetSettings appearance=null) {
         ids=ids ?? AllProviders;
         var key=new StringBuilder().Append(width).Append(',').Append(height).Append(',').Append(hover).Append(',').Append(String.Join("+",ids)).Append(',').Append(logos);
         foreach(string id in ids) {
+            key.Append('|').Append(IconVisible(id,logos,appearance)).Append(':').Append(appearance==null || appearance.LabelVisible(id));
             var p=data==null || data.providers==null ? null : data.providers.FirstOrDefault(v=>v.id==id);
             key.Append('|').Append(Stale(data,p));
             for(int j=0;j<2;j++) {
@@ -637,7 +661,7 @@ static class Art {
         }
         return key.ToString();
     }
-    public static Bitmap Frame(Snapshot data,int width,int height,bool hover,string[] ids=null,bool logos=true) {
+    public static Bitmap Frame(Snapshot data,int width,int height,bool hover,string[] ids=null,bool logos=true,WidgetSettings appearance=null) {
         ids=ids ?? AllProviders;
         // Render above device resolution, then downsample premultiplied alpha once.
         // Font positions retain fractional device pixels at small widget scales.
@@ -647,10 +671,10 @@ static class Art {
                 g.Clear(Color.Transparent);g.SmoothingMode=SmoothingMode.HighQuality;
                 g.TextRenderingHint=TextRenderingHint.AntiAlias;
                 g.PixelOffsetMode=PixelOffsetMode.HighQuality;
-                float scale=width/(float)LogicalWidth(ids,logos);
+                float scale=width/(float)LogicalWidth(ids,logos,appearance);
                 g.ScaleTransform(scale*sampling,scale*sampling);
                 int logicalHeight=(int)(height/scale);int y=Math.Max(0,(logicalHeight-38)/2);
-                Strip(g,data,2,y,hover,ids,logos);
+                Strip(g,data,2,y,hover,ids,logos,appearance);
             }
             var result=new Bitmap(width,height,PixelFormat.Format32bppPArgb);
             using(var g=Graphics.FromImage(result)) {
@@ -663,18 +687,20 @@ static class Art {
             return result;
         }
     }
-    public static void Strip(Graphics g, Snapshot data, int x, int y, bool hover, string[] ids, bool logos=true) {
-        int cut=logos ? 0 : LogoSpace;
+    public static void Strip(Graphics g, Snapshot data, int x, int y, bool hover, string[] ids, bool logos=true,WidgetSettings appearance=null) {
+        int left=x;
         for(int i=0;i<ids.Length;i++) {
             string id=ids[i];
+            int cut=HeaderCut(id,logos,appearance);
+            bool icon=IconVisible(id,logos,appearance);
             var p=data==null || data.providers==null ? null : data.providers.FirstOrDefault(v=>v.id==id);
             var windows=p==null || p.windows==null ? new Quota[0] : p.windows;
-            // Everything after the logo shifts left by `cut` when logos are hidden.
-            int left=x+i*(453-cut); bool stale=Stale(data,p); Color accent=Accent(id);
+            // Usage shifts left only by this provider's hidden header elements.
+            bool stale=Stale(data,p); Color accent=Accent(id);
             if(hover) Round(g,Color.FromArgb(30,30,35),new Rectangle(left,y+2,439-cut,34),5);
             if(i==1) Rule(g,Line,left-8,y+6,y+31);
-            if(logos) Logo(g,id,new Rectangle(left+8,y+7,22,22));
-            Text(g,id=="claude" ? "Claude" : "Codex",12,Ink,new Rectangle(left+39-cut,y+4,61,28),true);
+            if(icon) Logo(g,id,new Rectangle(left+8,y+7,22,22));
+            if(appearance==null || appearance.LabelVisible(id)) Text(g,id=="claude" ? "Claude" : "Codex",12,Ink,new Rectangle(left+39-(icon ? 0 : LogoSpace),y+4,61,28),true);
             Rule(g,Line,left+271-cut,y+8,y+34);
             for(int j=0;j<2;j++) {
                 var w=windows.Length>j ? windows[j] : null; int q=left+(j==0 ? 103 : 281)-cut;
@@ -686,6 +712,7 @@ static class Art {
                 Text(g,CompactCountdown(w),13,Ink,new Rectangle(q,y+20,46,18),true,false,true);
                 Text(g,ResetTime(w,j==1),11,Color.FromArgb(190,190,202),new Rectangle(q+46,y+21,barWidth-46,16),true,true);
             }
+            left+=453-cut;
         }
     }
     static int PercentageWidth(Graphics g,string text) {
@@ -1009,7 +1036,7 @@ class Widget : Form {
         double dpi=Native.GetDpiForWindow(bar)/96.0;
         Native.RECT barBounds;Native.GetWindowRect(bar,out barBounds);
         double scale=Math.Min(Settings.SizePercent/100.0*dpi,(barBounds.Bottom-barBounds.Top)/38.0);
-        int logicalWidth=Art.LogicalWidth(Settings.VisibleProviders(),Settings.ShowLogos);
+        int logicalWidth=Art.LogicalWidth(Settings.VisibleProviders(),true,Settings);
         int wanted=Math.Max(1,(int)(logicalWidth*scale));
         int minimum=Math.Min(wanted,Math.Max(1,(int)(logicalWidth*0.70*dpi)));
         string preferred=Settings.Position;int offset=(int)(Settings.Offset*dpi);
@@ -1076,9 +1103,9 @@ class Widget : Form {
         var shown=Settings.VisibleProviders();
         string tooltip=String.Join("\n",shown.Select(id=>(id=="claude" ? "Claude: " : "Codex: ")+StatusFor(FindProvider(id))))+"\nSession then weekly usage. Below: time left | local reset time.\n* Last-known quota. Click visible text, bars or icons for Settings.";
         if(tooltip!=tooltipText) {tooltipText=tooltip;tip.SetToolTip(this,tooltip);}
-        string nextKey=Art.FrameKey(Data,Width,Height,false,shown,Settings.ShowLogos)+Handle.ToString()+slot.ToString();
+        string nextKey=Art.FrameKey(Data,Width,Height,false,shown,true,Settings)+Handle.ToString()+slot.ToString();
         if(nextKey==renderedKey) return;
-        using(var bitmap=Art.Frame(Data,Width,Height,false,shown,Settings.ShowLogos)) {
+        using(var bitmap=Art.Frame(Data,Width,Height,false,shown,true,Settings)) {
             IntPtr screen=Native.GetDC(IntPtr.Zero),memory=IntPtr.Zero,pixels=IntPtr.Zero,previous=IntPtr.Zero;
             try {
                 memory=Native.CreateCompatibleDC(screen);pixels=bitmap.GetHbitmap(Color.FromArgb(0));
@@ -1156,12 +1183,13 @@ static class Program {
                 if(reloaded.Enabled) throw new Exception("Turning the widget off did not persist");
                 var plain=new WidgetSettings {ShowLogos=false};plain.Save(settingsPath);
                 if(WidgetSettings.Load(settingsPath).ShowLogos || plain.SameAs(new WidgetSettings())) throw new Exception("Hiding logos did not persist");
+                if(!plain.SameAs(new WidgetSettings {ShowClaudeIcon=false,ShowCodexIcon=false})) throw new Exception("Legacy hidden logos changed during settings migration");
                 if(!reloaded.SameAs(reloaded.Clone()) || reloaded.SameAs(new WidgetSettings())) throw new Exception("Settings comparison failed");
                 var neither=new WidgetSettings {ShowClaude=false,ShowCodex=false};neither.Normalize();
                 if(!neither.ShowClaude || !neither.ShowCodex) throw new Exception("Hiding both providers was allowed");
                 File.WriteAllText(settingsPath,"{\"SizePercent\": 85, \"Offset\": 0, \"Position\": \"Left\"}");
                 var legacy=WidgetSettings.Load(settingsPath);
-                if(!legacy.ShowClaude || !legacy.ShowCodex || !legacy.Enabled || legacy.SizePercent!=85) throw new Exception("Older settings file did not load");
+                if(!legacy.ShowClaude || !legacy.ShowCodex || !legacy.Enabled || legacy.SizePercent!=85 || !legacy.ShowClaudeIcon || !legacy.ShowCodexIcon || !legacy.ShowClaudeLabel || !legacy.ShowCodexLabel) throw new Exception("Older settings file did not load");
             } finally {if(File.Exists(settingsPath)) File.Delete(settingsPath);}
             var fitBoxes=new List<Rectangle>{new Rectangle(700,0,300,48)};
             var fitted=Layout.FitGap(0,1000,0,48,808,565,fitBoxes,"Left",0);
@@ -1211,6 +1239,39 @@ static class Program {
                 if(!icon) throw new Exception("Single-provider icon did not render");
             }
             if(Layout.Target(0,1000,200,"Right",0)!=788 || Layout.Target(0,1000,200,"Left",60)!=72) throw new Exception("Placement target failed");
+            var appearancePath=Path.Combine(Path.GetTempPath(),"TokenTaskbar-appearance-"+Guid.NewGuid()+".json");
+            var appearanceKeys=new HashSet<string>();
+            var appearanceData=new Snapshot {generated=Art.Now,providers=Art.AllProviders.Select(id=>new Provider {
+                id=id,state="ok",windows=new[]{new Quota {valid=true,used=25,reset=Art.Now+7200},new Quota {valid=true,used=75,reset=Art.Now+86400}}
+            }).ToArray()};
+            using(var preview=new Bitmap(896,360)) using(var graphics=Graphics.FromImage(preview)) {
+                graphics.Clear(Art.Bg);int row=0;
+                try {
+                    for(int mask=0;mask<16;mask++) {
+                        var appearance=new WidgetSettings {ShowClaudeIcon=(mask&1)!=0,ShowClaudeLabel=(mask&2)!=0,ShowCodexIcon=(mask&4)!=0,ShowCodexLabel=(mask&8)!=0};
+                        appearance.Save(appearancePath);
+                        if(!appearance.SameAs(WidgetSettings.Load(appearancePath))) throw new Exception("Agent appearance did not persist: "+mask);
+                        if(!appearanceKeys.Add(Art.FrameKey(appearanceData,896,48,false,Art.AllProviders,true,appearance))) throw new Exception("Agent appearance did not invalidate frame: "+mask);
+                        int claudeCut=(appearance.ShowClaudeIcon ? 0 : Art.LogoSpace)+(appearance.ShowClaudeLabel ? 0 : Art.LabelSpace);
+                        int codexCut=(appearance.ShowCodexIcon ? 0 : Art.LogoSpace)+(appearance.ShowCodexLabel ? 0 : Art.LabelSpace);
+                        int width=Art.LogicalWidth(Art.AllProviders,true,appearance);
+                        if(width!=896-claudeCut-codexCut || Art.LogicalWidth(new[]{"claude"},true,appearance)!=444-claudeCut || Art.LogicalWidth(new[]{"codex"},true,appearance)!=444-codexCut) throw new Exception("Agent appearance width failed: "+mask);
+                        using(var frame=Art.Frame(appearanceData,width,48,false,Art.AllProviders,true,appearance)) {
+                            // Each agent's short and weekly usage bars must survive every header combination.
+                            int claudeLeft=2,codexLeft=455-claudeCut;
+                            foreach(int q in new[]{claudeLeft+103-claudeCut,claudeLeft+281-claudeCut,codexLeft+103-codexCut,codexLeft+281-codexCut})
+                                if(frame.GetPixel(q+3,16).A<200) throw new Exception("Hiding agent header removed usage: "+mask);
+                            if(frame.GetPixel(0,0).A!=0 || frame.GetPixel(width-1,47).A!=0) throw new Exception("Agent appearance transparency failed: "+mask);
+                            if(mask==0 || mask==5 || mask==9 || mask==10 || mask==15) {
+                                graphics.DrawString("Claude icon/name: "+appearance.ShowClaudeIcon+"/"+appearance.ShowClaudeLabel+"    Codex icon/name: "+appearance.ShowCodexIcon+"/"+appearance.ShowCodexLabel,Art.UiFont(11,false),Brushes.White,2,row*72);
+                                graphics.DrawImageUnscaled(frame,0,row*72+20);row++;
+                            }
+                        }
+                    }
+                    Directory.CreateDirectory(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"build"));
+                    preview.Save(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"build","agent-appearance.png"),ImageFormat.Png);
+                } finally {if(File.Exists(appearancePath)) File.Delete(appearancePath);}
+            }
             File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"layout-test.txt"),"PASS: settings persistence, provider visibility, single-provider rendering, positions, offsets, overlap protection, transparency and scale rendering"); return;
         }
         if(args.Contains("--diagnose")) {

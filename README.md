@@ -56,7 +56,7 @@ Usage and settings share one window with **Usage** and **Settings** tabs. Clicki
 
 - **Size** (70-125%, 5% steps), **Position** (Left/Center/Right) and **Nudge** (±400 px; arrows move 10 px, Shift+arrows 1 px) change the widget on the taskbar as you adjust them. Size is capped to taskbar height, and position uses the nearest unoccupied gap.
 - A status line reports where the widget landed: placed as asked, moved to the nearest free space, or in the tray because no gap is wide enough.
-- **Show provider logos** hides the Claude and Codex logos on the taskbar widget, making it about 31 px narrower per provider. The usage window keeps its logos.
+- **Agents → Icon / Name** independently shows or hides each agent's taskbar icon and name. Claude and Codex each have their own switches. Hiding an icon reclaims 31 logical pixels; hiding a name reclaims 64. Usage and reset times remain visible, and the usage window keeps its headings. Existing hidden-logo preferences are preserved when upgrading.
 - **Show Claude / Show Codex** hide one provider on the taskbar, which halves the widget's width. At least one stays on. The usage panel always shows both.
 - **Start with Windows** adds or removes a Startup-folder shortcut. If the app is moved or a newer ZIP is extracted to a different folder, the next launch repoints an existing shortcut at the running executable.
 
