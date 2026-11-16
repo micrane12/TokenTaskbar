@@ -54,6 +54,24 @@ def window(raw, observed):
     return {"used_percent": used, "resets_at": int(reset * 1000), "observed_at": int(observed * 1000)}
 
 
+def _jsonl_files(root):
+    """Yield *.jsonl DirEntry objects under root, like Path.rglob but without per-file Path work."""
+    pending = [str(root)]
+    while pending:
+        try:
+            with os.scandir(pending.pop()) as entries:
+                for entry in entries:
+                    try:
+                        if entry.is_dir():
+                            pending.append(entry.path)
+                        elif entry.name.endswith(".jsonl") and entry.is_file():
+                            yield entry
+                    except OSError:
+                        continue
+        except OSError:
+            continue
+
+
 class Collector:
     def __init__(self, home=None, codex_home=None):
         self.home = Path(home) if home else Path.home()
@@ -136,12 +154,18 @@ class Collector:
         for provider, root in roots:
             if not root.is_dir():
                 continue
-            for path in root.rglob("*.jsonl"):
+            for entry in _jsonl_files(root):
                 try:
-                    stat = path.stat()
-                    if stat.st_mtime < cutoff:
+                    # Directory-listing metadata is free on Windows; only stat files that changed.
+                    quick = entry.stat()
+                    if quick.st_mtime < cutoff:
                         continue
-                    state = self.files.setdefault(path, {"offset": 0, "session": path.stem, "total": 0, "signature": None})
+                    path = Path(entry.path)
+                    state = self.files.setdefault(path, {"offset": 0, "session": path.stem, "total": 0,
+                                                         "signature": None, "quick": None})
+                    if state.get("quick") == (quick.st_size, quick.st_mtime_ns):
+                        continue
+                    stat = path.stat()
                     signature = (stat.st_ino, stat.st_size, stat.st_mtime_ns)
                     if state["signature"] == signature:
                         continue
@@ -176,6 +200,7 @@ class Collector:
                             except (ValueError, TypeError, AttributeError, OverflowError):
                                 continue
                     state["signature"] = signature
+                    state["quick"] = (stat.st_size, stat.st_mtime_ns)
                 except (OSError, PermissionError):
                     continue
         self.records = {key: value for key, value in self.records.items() if value[1] >= cutoff}

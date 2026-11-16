@@ -10,6 +10,7 @@ from pathlib import Path
 from urllib.request import urlopen
 
 import cc_account
+import claude_renew
 import codex_account
 from collector import Collector
 
@@ -42,7 +43,7 @@ def display_windows(windows):
             for slot, label in (("short", "5h"), ("weekly", "wk"))]
 
 
-def snapshot(collector, accounts, now=None):
+def snapshot(collector, accounts, now=None, notes=None):
     now = now or time.time()
     local = collector.snapshot(now)
     providers = []
@@ -55,7 +56,8 @@ def snapshot(collector, accounts, now=None):
                           "state": a.get("state", "loading"),
                           "source": a.get("_origin") or ("last session" if a.get("local") else "account"),
                           "stale": bool(a.get("stale") or a.get("local")),
-                          "observed": a.get("fetched_at", 0) or 0})
+                          "observed": a.get("fetched_at", 0) or 0,
+                          "note": (notes or {}).get(p["id"], "")})
     return {"generated": now, "machine": os.environ.get("COMPUTERNAME", "This PC"),
             "providers": providers}
 
@@ -116,17 +118,21 @@ def restore_accounts(path):
         pass
 
 
-def save_accounts(path, accounts):
+def save_accounts(path, accounts, previous=None):
+    """Write the cache only when its contents change. Returns the text on disk."""
     fields = ("ok", "state", "windows", "stale", "fetched_at", "retry_at", "local")
+    text = json.dumps({key: {field: value.get(field) for field in fields if field in value}
+                       for key, value in accounts.items()})
+    if text == previous:
+        return previous
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         temporary = path.with_suffix(".tmp")
-        temporary.write_text(json.dumps({key: {field: value.get(field) for field in fields
-                                              if field in value}
-                                         for key, value in accounts.items()}), encoding="utf-8")
+        temporary.write_text(text, encoding="utf-8")
         temporary.replace(path)
+        return text
     except OSError:
-        pass
+        return previous
 
 
 def main():
@@ -137,11 +143,16 @@ def main():
     root = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent.parent
     cache = root / "data" / "quota-cache.json"
     restore_accounts(cache)
+    renewer = claude_renew.Renewer(root / "data" / "claude-renew.json", root / "widget-settings.json")
     accounts = account_status(block=True)
+    saved = None
     while True:
         try:
-            save_accounts(cache, accounts)
-            print(json.dumps(snapshot(collector, accounts), separators=(",", ":")), flush=True)
+            saved = save_accounts(cache, accounts, saved)
+            claude = accounts.get("claude") or {}
+            # While Bridge supplies the counters, Bridge's own Claude Code use keeps the sign-in fresh.
+            notes = {"claude": "" if claude.get("_origin") == "Bridge cache" else renewer.check(claude)}
+            print(json.dumps(snapshot(collector, accounts, notes=notes), separators=(",", ":")), flush=True)
         except BrokenPipeError:
             return
         if args.once:

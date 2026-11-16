@@ -23,7 +23,7 @@ static class AppVersion {
 
 public class Quota { public string label; public double used, reset; public bool valid; public bool active=true; }
 public class Provider {
-    public string id, name, state, source; public double tokens5h, tokensWeek, observed;
+    public string id, name, state, source, note; public double tokens5h, tokensWeek, observed;
     public bool found, stale; public Quota[] windows;
 }
 public class Snapshot { public double generated; public string machine; public Provider[] providers; }
@@ -33,6 +33,8 @@ public class WidgetSettings {
     public string Position="Left";
     public bool ShowClaude=true, ShowCodex=true, Enabled=true, ShowLogos=true;
     public bool ShowClaudeIcon=true, ShowCodexIcon=true, ShowClaudeLabel=true, ShowCodexLabel=true;
+    // Opt-in: run Claude Code once (at most every 8 h) when its sign-in has expired.
+    public bool RenewClaude=false;
     // Keep the old shared logo flag readable for upgrades from earlier releases.
     public bool IconVisible(string id) {return ShowLogos && (id=="claude" ? ShowClaudeIcon : ShowCodexIcon);}
     public bool LabelVisible(string id) {return id=="claude" ? ShowClaudeLabel : ShowCodexLabel;}
@@ -51,7 +53,7 @@ public class WidgetSettings {
         return other!=null && SizePercent==other.SizePercent && Offset==other.Offset && Position==other.Position
             && ShowClaude==other.ShowClaude && ShowCodex==other.ShowCodex && Enabled==other.Enabled
             && IconVisible("claude")==other.IconVisible("claude") && IconVisible("codex")==other.IconVisible("codex")
-            && ShowClaudeLabel==other.ShowClaudeLabel && ShowCodexLabel==other.ShowCodexLabel;
+            && ShowClaudeLabel==other.ShowClaudeLabel && ShowCodexLabel==other.ShowCodexLabel && RenewClaude==other.RenewClaude;
     }
     public static WidgetSettings Load(string path) {
         try {var v=new JavaScriptSerializer().Deserialize<WidgetSettings>(File.ReadAllText(path));if(v!=null){v.Normalize();return v;}} catch { }
@@ -272,7 +274,7 @@ class SettingsPage : UserControl {
     readonly Segmented position=new Segmented(new[]{"Left","Center","Right"}) {AccessibleName="Taskbar position"};
     readonly ToggleSwitch enabled=new ToggleSwitch {AccessibleName="Show widget on taskbar"},
         showClaude=new ToggleSwitch {AccessibleName="Show Claude"},showCodex=new ToggleSwitch {AccessibleName="Show Codex"},
-        startup=new ToggleSwitch {AccessibleName="Start with Windows"},
+        startup=new ToggleSwitch {AccessibleName="Start with Windows"},renew=new ToggleSwitch {AccessibleName="Renew Claude sign-in"},
         claudeIcon=new ToggleSwitch {AccessibleName="Show Claude icon"},codexIcon=new ToggleSwitch {AccessibleName="Show Codex icon"},
         claudeLabel=new ToggleSwitch {AccessibleName="Show Claude name"},codexLabel=new ToggleSwitch {AccessibleName="Show Codex name"};
     readonly Button nudgeLeft=new Button {Text="◀",AccessibleName="Nudge left 10 pixels"},nudgeRight=new Button {Text="▶",AccessibleName="Nudge right 10 pixels"},
@@ -288,27 +290,27 @@ class SettingsPage : UserControl {
         widget=owner;k=scale;DoubleBuffered=true;BackColor=Art.Bg;ForeColor=Art.Ink;Font=Art.UiFont((float)Math.Round(14*k),false);
         size.Bounds=R(36,64,308,24);position.Bounds=R(36,168,308,34);
         nudgeLeft.Bounds=R(36,250,32,32);nudge.Bounds=R(78,254,224,24);nudgeRight.Bounds=R(312,250,32,32);nudgeReset.Location=new Point(S(196),S(228));
-        enabled.Bounds=R(654,44,40,20);showClaude.Bounds=R(538,182,34,20);showCodex.Bounds=R(538,226,34,20);startup.Bounds=R(654,331,40,20);
+        enabled.Bounds=R(654,44,40,20);showClaude.Bounds=R(538,182,34,20);showCodex.Bounds=R(538,226,34,20);startup.Bounds=R(654,293,40,20);renew.Bounds=R(654,335,40,20);
         claudeIcon.Bounds=R(598,182,34,20);codexIcon.Bounds=R(598,226,34,20);
         claudeLabel.Bounds=R(658,182,34,20);codexLabel.Bounds=R(658,226,34,20);
         reset.Location=new Point(S(20),S(402));undo.Bounds=R(470,394,120,34);SaveButton.Bounds=R(598,394,112,34);
-        foreach(Control c in new Control[]{size,nudge,position,nudgeReset,enabled,showClaude,showCodex,startup,claudeIcon,codexIcon,claudeLabel,codexLabel}) c.BackColor=Art.Card;
+        foreach(Control c in new Control[]{size,nudge,position,nudgeReset,enabled,showClaude,showCodex,startup,renew,claudeIcon,codexIcon,claudeLabel,codexLabel}) c.BackColor=Art.Card;
         foreach(var b in new[]{nudgeLeft,nudgeRight,undo,SaveButton,updateApp}) {
             b.FlatStyle=FlatStyle.Flat;b.FlatAppearance.BorderColor=Art.Line;b.BackColor=Art.Bg;b.ForeColor=Art.Ink;b.Cursor=Cursors.Hand;b.UseVisualStyleBackColor=false;
         }
         nudgeLeft.Font=nudgeRight.Font=new Font("Segoe UI Symbol",8);
         foreach(var link in new[]{nudgeReset,reset}) {link.LinkColor=Art.Muted;link.ActiveLinkColor=Art.Ink;link.VisitedLinkColor=Art.Muted;link.Font=Art.UiFont((float)Math.Round(12*k),false);}
         reset.BackColor=Art.Bg;
-        Controls.AddRange(new Control[]{size,position,nudgeLeft,nudge,nudgeRight,nudgeReset,claudeIcon,codexIcon,claudeLabel,codexLabel,enabled,showClaude,showCodex,startup,reset,undo,SaveButton,updateApp});
+        Controls.AddRange(new Control[]{size,position,nudgeLeft,nudge,nudgeRight,nudgeReset,claudeIcon,codexIcon,claudeLabel,codexLabel,enabled,showClaude,showCodex,startup,renew,reset,undo,SaveButton,updateApp});
         size.ValueChanged+=(s,e)=>Changed();nudge.ValueChanged+=(s,e)=>Changed();position.SelectedChanged+=(s,e)=>Changed();
-        foreach(var t in new[]{enabled,showClaude,showCodex,startup,claudeIcon,codexIcon,claudeLabel,codexLabel}) t.CheckedChanged+=(s,e)=>Changed();
+        foreach(var t in new[]{enabled,showClaude,showCodex,startup,renew,claudeIcon,codexIcon,claudeLabel,codexLabel}) t.CheckedChanged+=(s,e)=>Changed();
         nudgeLeft.Click+=(s,e)=>Nudge(-1);nudgeRight.Click+=(s,e)=>Nudge(1);
         nudgeReset.LinkClicked+=(s,e)=>nudge.Value=0;
         reset.LinkClicked+=(s,e)=> {
             var d=new WidgetSettings();loading=true;
             size.Value=d.SizePercent;position.Selected=d.Position;nudge.Value=d.Offset;
             enabled.Checked=true;showClaude.Checked=true;showCodex.Checked=true;
-            claudeIcon.Checked=true;codexIcon.Checked=true;claudeLabel.Checked=true;codexLabel.Checked=true;
+            claudeIcon.Checked=true;codexIcon.Checked=true;claudeLabel.Checked=true;codexLabel.Checked=true;renew.Checked=d.RenewClaude;
             loading=false;Changed();
         };
         preview.Tick+=(s,e)=> {preview.Stop();widget.PreviewSettings(Read());};
@@ -328,7 +330,7 @@ class SettingsPage : UserControl {
     WidgetSettings Read() {
         return new WidgetSettings {SizePercent=size.Value,Position=position.Selected,Offset=nudge.Value,
             ShowClaude=showClaude.Checked,ShowCodex=showCodex.Checked,Enabled=enabled.Checked,
-            ShowClaudeIcon=claudeIcon.Checked,ShowCodexIcon=codexIcon.Checked,ShowClaudeLabel=claudeLabel.Checked,ShowCodexLabel=codexLabel.Checked};
+            ShowClaudeIcon=claudeIcon.Checked,ShowCodexIcon=codexIcon.Checked,ShowClaudeLabel=claudeLabel.Checked,ShowCodexLabel=codexLabel.Checked,RenewClaude=renew.Checked};
     }
     bool Dirty {get {return !Read().SameAs(widget.SavedSettings) || startup.Checked!=startupSaved;}}
     void Nudge(int direction) {nudge.Value+=direction*((ModifierKeys & Keys.Shift)!=0 ? 1 : 10);}
@@ -366,7 +368,7 @@ class SettingsPage : UserControl {
         size.Value=saved.SizePercent;position.Selected=saved.Position;nudge.Value=saved.Offset;
         enabled.Checked=saved.Enabled;showClaude.Checked=saved.ShowClaude;showCodex.Checked=saved.ShowCodex;
         claudeIcon.Checked=saved.IconVisible("claude");codexIcon.Checked=saved.IconVisible("codex");
-        claudeLabel.Checked=saved.ShowClaudeLabel;codexLabel.Checked=saved.ShowCodexLabel;
+        claudeLabel.Checked=saved.ShowClaudeLabel;codexLabel.Checked=saved.ShowCodexLabel;renew.Checked=saved.RenewClaude;
         startupSaved=Startup.Enabled;startup.Checked=startupSaved;loading=false;errorTitle="";UpdateChrome();
     }
     static void Divider(Graphics g,int left,int right,int y) {using(var pen=new Pen(Color.FromArgb(38,38,44))) g.DrawLine(pen,left,y,right,y);}
@@ -415,16 +417,17 @@ class SettingsPage : UserControl {
         Art.Text(g,"Show",11,Art.Muted,new Rectangle(532,150,46,16),true);
         Art.Text(g,"Icon",11,Art.Muted,new Rectangle(594,150,46,16),true);
         Art.Text(g,"Name",11,Art.Muted,new Rectangle(650,150,46,16),true);
-        Art.Round(g,Art.Card,new Rectangle(380,170,330,108),10);
+        Art.Round(g,Art.Card,new Rectangle(380,170,330,88),10);
         Art.Logo(g,"claude",new Rectangle(396,181,20,20));Art.Text(g,"Claude",13,label,new Rectangle(426,180,104,22),true);
         Divider(g,380,710,214);
         Art.Logo(g,"codex",new Rectangle(396,225,20,20));Art.Text(g,"Codex",13,label,new Rectangle(426,224,104,22),true);
-        Art.Text(g,"Icons and names can be hidden separately.",11,Art.Muted,new Rectangle(396,254,300,18));
 
-        Group(g,"STARTUP",380,292);
-        Art.Round(g,Art.Card,new Rectangle(380,312,330,58),10);
-        Art.Text(g,"Start with Windows",13,Art.Ink,new Rectangle(396,320,240,22),true);
-        Art.Text(g,"Opens Token Taskbar when you sign in.",12,Art.Muted,new Rectangle(396,342,250,18));
+        Group(g,"STARTUP AND SIGN-IN",380,266);
+        Art.Round(g,Art.Card,new Rectangle(380,286,330,84),10);
+        Art.Text(g,"Start with Windows",13,Art.Ink,new Rectangle(396,292,240,22),true);
+        Divider(g,380,710,324);
+        Art.Text(g,"Renew Claude sign-in",13,Art.Ink,new Rectangle(396,330,240,22),true);
+        Art.Text(g,"Tiny request if expired · max every 8 h",11,Art.Muted,new Rectangle(396,350,250,16));
 
         // Footer: save state or error between the reset link and the buttons.
         using(var pen=new Pen(Color.FromArgb(45,45,53))) g.DrawLine(pen,20,380,710,380);
@@ -527,12 +530,19 @@ static class Layout {
             new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button),
             new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ListItem),
             new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.CheckBox));
-        var elements = root.FindAll(TreeScope.Descendants, condition);
+        // Fetch the three properties in the FindAll round trip instead of three
+        // cross-process calls per taskbar button on every scan.
+        var cache = new CacheRequest {AutomationElementMode = AutomationElementMode.None};
+        cache.Add(AutomationElement.ProcessIdProperty);
+        cache.Add(AutomationElement.IsOffscreenProperty);
+        cache.Add(AutomationElement.BoundingRectangleProperty);
+        AutomationElementCollection elements;
+        using (cache.Activate()) elements = root.FindAll(TreeScope.Descendants, condition);
         var boxes = new List<Rectangle>();
         foreach (AutomationElement el in elements) {
             try {
-                if (el.Current.ProcessId == self || el.Current.IsOffscreen) continue;
-                var b = el.Current.BoundingRectangle;
+                if (el.Cached.ProcessId == self || el.Cached.IsOffscreen) continue;
+                var b = el.Cached.BoundingRectangle;
                 if (b.IsEmpty || b.Width <= 0 || b.Height <= 0) continue;
                 boxes.Add(Rectangle.FromLTRB((int)b.Left, (int)b.Top, (int)b.Right, (int)b.Bottom));
             } catch (ElementNotAvailableException) { }
@@ -916,6 +926,8 @@ class Widget : Form {
     public event EventHandler PlacementChanged;
     bool settingsScan;
     public const int StripWidth=896;
+    static readonly int SelfId=GetSelfId();
+    static int GetSelfId() {using(var self=Process.GetCurrentProcess()) return self.Id;}
     readonly System.Windows.Forms.Timer timer=new System.Windows.Forms.Timer();
     readonly string root=AppDomain.CurrentDomain.BaseDirectory;
     readonly NotifyIcon tray=new NotifyIcon(); readonly Icon trayIcon=Art.TrayIcon(); readonly ToolTip tip=new ToolTip();
@@ -934,6 +946,7 @@ class Widget : Form {
         if(p==null) return "Agent unavailable";
         if(p.id=="claude") {
             string retained=p.observed>0 ? " · saved "+Math.Max(0,(int)((Art.Now-p.observed)/60))+"m ago" : "";
+            if(!String.IsNullOrEmpty(p.note)) return p.note+retained;
             if(p.state=="expired") return "Session expired · Reconnect in Claude Code"+retained;
             if(p.state=="no-credentials" || p.state=="auth-rejected") return "Sign-in required · Reconnect Claude"+retained;
             if(p.state=="forbidden") return "Usage access denied · check Claude account"+retained;
@@ -1032,7 +1045,7 @@ class Widget : Form {
         }
         var bar=Native.FindWindow("Shell_TrayWnd",null);
         if(bar==IntPtr.Zero || !Native.IsWindowVisible(bar)) return;
-        scanning=true; int generation=++scanGeneration;int pid=Process.GetCurrentProcess().Id;
+        scanning=true; int generation=++scanGeneration;int pid=SelfId;
         double dpi=Native.GetDpiForWindow(bar)/96.0;
         Native.RECT barBounds;Native.GetWindowRect(bar,out barBounds);
         double scale=Math.Min(Settings.SizePercent/100.0*dpi,(barBounds.Bottom-barBounds.Top)/38.0);

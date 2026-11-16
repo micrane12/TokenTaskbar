@@ -59,6 +59,7 @@ Usage and settings share one window with **Usage** and **Settings** tabs. Clicki
 - **Agents → Icon / Name** independently shows or hides each agent's taskbar icon and name. Claude and Codex each have their own switches. Hiding an icon reclaims 31 logical pixels; hiding a name reclaims 64. Usage and reset times remain visible, and the usage window keeps its headings. Existing hidden-logo preferences are preserved when upgrading.
 - **Show Claude / Show Codex** hide one provider on the taskbar, which halves the widget's width. At least one stays on. The usage panel always shows both.
 - **Start with Windows** adds or removes a Startup-folder shortcut. If the app is moved or a newer ZIP is extracted to a different folder, the next launch repoints an existing shortcut at the running executable.
+- **Renew Claude sign-in** (off by default) lets the widget renew an expired Claude session on its own. See below.
 
 Changes are previews until you click **Save**; the footer shows "Not saved yet" meanwhile. **Undo changes**, Esc or closing the window returns the taskbar to the saved settings. Switching tabs keeps unsaved changes. **Reset to defaults** previews the defaults (Start with Windows unchanged); Save keeps them. Settings are stored locally in widget-settings.json beside the executable.
 
@@ -68,7 +69,9 @@ Claude's access token can expire while the PC is off even though the saved login
 
 Reconnect also finds standard native and npm installations when the Windows startup PATH is missing Claude Code. `CLAUDE_CONFIG_DIR` is respected by the standalone Claude reader. Authentication failures cached by an older Chat Bridge fall back to the standalone reader. Offline, expired-session, rejected-login and forbidden-access states are displayed separately, with the age of any retained reading.
 
-Renewal is user-initiated, not unattended at boot: the CLI has no dedicated silent-renew command. TokenTaskbar never rotates or writes Claude Code credentials or sends a model prompt to renew them.
+By default renewal is user-initiated: the CLI has no dedicated silent-renew command. TokenTaskbar never rotates or writes Claude Code credentials itself.
+
+**Renew Claude sign-in** (Settings → Startup and sign-in, off by default) automates it. When the stored access token has expired, the collector runs Claude Code once with the smallest possible request (Haiku, one-character reply, no tools, MCP or settings; about 600 tokens, roughly 2.5 seconds). Claude Code then renews its own session. It runs only when the access token has expired, the saved login has not, Chat Bridge is not supplying the counters, and no attempt was made in the previous 8 hours (remembered in `data/claude-renew.json` across restarts). Success means Claude Code wrote an unexpired token. If Claude Code cannot be found or the attempt fails, the status line asks you to reconnect. The request counts toward Claude usage like any other and starts a 5-hour window if none is open.
 
 ## Updating the application
 
