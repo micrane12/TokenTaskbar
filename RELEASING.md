@@ -2,7 +2,7 @@
 
 Publish this source repository publicly as TokenTaskbar. Generated binaries, account caches, settings and diagnostics are excluded from Git. Release packages use an explicit allowlist rather than archiving the project folder.
 
-For the first preview, push the source to GitHub, then create and push a version tag such as v0.1.0. The Windows release workflow builds and checks the application, uploads the ZIP and SHA-256 file, and creates a draft release. Review the draft and publish it to make the download available. A manual workflow run builds downloadable artifacts without publishing a release.
+Update the assembly version in `source/TokenTaskbar.cs` and add the matching entry to `RELEASE-NOTES.md`. Commit and push the source to GitHub, then create and push the matching version tag, such as v0.1.12. The Windows release workflow builds and checks the application, uploads the ZIP and SHA-256 file, and publishes the release. Confirm the workflow succeeds and both release assets are available. A manual workflow run builds downloadable artifacts without publishing a release.
 
 For a local build:
 

@@ -15,8 +15,8 @@ using System.Web.Script.Serialization;
 using System.Windows.Automation;
 using System.Windows.Forms;
 
-[assembly: System.Reflection.AssemblyVersion("0.1.11.0")]
-[assembly: System.Reflection.AssemblyFileVersion("0.1.11.0")]
+[assembly: System.Reflection.AssemblyVersion("0.1.12.0")]
+[assembly: System.Reflection.AssemblyFileVersion("0.1.12.0")]
 static class AppVersion {
     public static string Display {get {return "v"+typeof(AppVersion).Assembly.GetName().Version.ToString(3);}}
 }

@@ -1,5 +1,11 @@
 # TokenTaskbar preview
 
+## v0.1.12
+
+Adds an optional **Renew Claude sign-in** switch, off by default. When the access token has expired and the saved login is still usable, Claude Code sends a small Haiku request to renew its session. Attempts are limited to once every eight hours across restarts and skipped while Chat Bridge supplies the counters. Each request uses about 600 tokens and can start a five-hour usage window. Failed attempts ask you to reconnect. Normal usage monitoring sends no model prompts.
+
+Includes the per-agent Show, Icon and Name switches from v0.1.11.
+
 ## v0.1.11
 
 Settings → Agents now has separate **Show**, **Icon**, and **Name** switches for Claude and Codex. Hide either agent's icon or name independently while retaining usage and reset times. The widget narrows to reclaim the hidden header space. Preview, Save, Undo and Reset to defaults include the new settings; upgrades preserve the previous shared hidden-logo preference. All sixteen icon/name combinations are checked for persistence, layout, transparency and visible usage bars.
