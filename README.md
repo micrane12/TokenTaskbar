@@ -20,6 +20,7 @@ Each PC uses its **own** existing Codex / Claude Code sign-in and local usage re
 - `source/TokenTaskbar.cs`: native Windows Forms app, simultaneous provider chips, usage popup, taskbar attachment and layout-gap calculation.
 - `source/worker.py`: background data coordinator; sends summary JSON to the app over a private stdout pipe.
 - `source/collector.py`: copied from your Token Timer project; reads local token counters.
+- `source/signin_watch.py`: read-only watch on Claude Code's sign-in file; reports the sign-in expiry and logs renewals/sign-outs to `data/claude-signin.log` (no tokens).
 - `source/cc_account.py` and `codex_account.py`: copied from your Chat Bridge project; read provider account percentages with caching and backoff.
 - `source/build.ps1`: reproducible UI build and collector packaging.
 - `source/test_*.py`: existing collector tests plus quota validation tests.

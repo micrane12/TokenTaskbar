@@ -12,6 +12,7 @@ from urllib.request import urlopen
 import cc_account
 import claude_renew
 import codex_account
+import signin_watch
 from collector import Collector
 
 
@@ -43,7 +44,7 @@ def display_windows(windows):
             for slot, label in (("short", "5h"), ("weekly", "wk"))]
 
 
-def snapshot(collector, accounts, now=None, notes=None):
+def snapshot(collector, accounts, now=None, notes=None, extras=None):
     now = now or time.time()
     local = collector.snapshot(now)
     providers = []
@@ -57,7 +58,8 @@ def snapshot(collector, accounts, now=None, notes=None):
                           "source": a.get("_origin") or ("last session" if a.get("local") else "account"),
                           "stale": bool(a.get("stale") or a.get("local")),
                           "observed": a.get("fetched_at", 0) or 0,
-                          "note": (notes or {}).get(p["id"], "")})
+                          "note": (notes or {}).get(p["id"], ""),
+                          **(extras or {}).get(p["id"], {})})
     return {"generated": now, "machine": os.environ.get("COMPUTERNAME", "This PC"),
             "providers": providers}
 
@@ -144,6 +146,7 @@ def main():
     cache = root / "data" / "quota-cache.json"
     restore_accounts(cache)
     renewer = claude_renew.Renewer(root / "data" / "claude-renew.json", root / "widget-settings.json")
+    watch = signin_watch.SignInWatch(root / "data")
     accounts = account_status(block=True)
     saved = None
     while True:
@@ -152,7 +155,11 @@ def main():
             claude = accounts.get("claude") or {}
             # While Bridge supplies the counters, Bridge's own Claude Code use keeps the sign-in fresh.
             notes = {"claude": "" if claude.get("_origin") == "Bridge cache" else renewer.check(claude)}
-            print(json.dumps(snapshot(collector, accounts, notes=notes), separators=(",", ":")), flush=True)
+            # Claude Code writes the new token while the renewal runs; allow for the tick delay.
+            renewing = renewer.running or time.time() - renewer.last_attempt < 180
+            extras = {"claude": watch.check(renewing=renewing)}
+            print(json.dumps(snapshot(collector, accounts, notes=notes, extras=extras),
+                             separators=(",", ":")), flush=True)
         except BrokenPipeError:
             return
         if args.once:

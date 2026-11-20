@@ -1,5 +1,11 @@
 # TokenTaskbar preview
 
+## v0.1.13
+
+The Usage panel's Claude card now shows when Claude Code's long-lived sign-in expires (**Sign-in valid until …**). That is when a real `/login` is due; the eight-hour access token in between renews by itself. The line turns yellow in the last three days.
+
+TokenTaskbar also records every change to Claude Code's sign-in file in `data\claude-signin.log`: renewed, signed in, or signed out. Each entry lists the Claude programs running at the time and whether TokenTaskbar's own renewal made the change. A sign-out or new sign-in while the previous sign-in was still valid is marked **EARLY** and appears in the panel as *Unexpected*. This helps find out what is logging Claude out. The log never contains tokens, and it stays on this PC and out of the release ZIP.
+
 ## v0.1.12
 
 Adds an optional **Renew Claude sign-in** switch, off by default. When the access token has expired and the saved login is still usable, Claude Code sends a small Haiku request to renew its session. Attempts are limited to once every eight hours across restarts and skipped while Chat Bridge supplies the counters. Each request uses about 600 tokens and can start a five-hour usage window. Failed attempts ask you to reconnect. Normal usage monitoring sends no model prompts.

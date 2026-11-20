@@ -15,15 +15,15 @@ using System.Web.Script.Serialization;
 using System.Windows.Automation;
 using System.Windows.Forms;
 
-[assembly: System.Reflection.AssemblyVersion("0.1.12.0")]
-[assembly: System.Reflection.AssemblyFileVersion("0.1.12.0")]
+[assembly: System.Reflection.AssemblyVersion("0.1.13.0")]
+[assembly: System.Reflection.AssemblyFileVersion("0.1.13.0")]
 static class AppVersion {
     public static string Display {get {return "v"+typeof(AppVersion).Assembly.GetName().Version.ToString(3);}}
 }
 
 public class Quota { public string label; public double used, reset; public bool valid; public bool active=true; }
 public class Provider {
-    public string id, name, state, source, note; public double tokens5h, tokensWeek, observed;
+    public string id, name, state, source, note, signinEvent; public double tokens5h, tokensWeek, observed, loginExpires, signinEventAt;
     public bool found, stale; public Quota[] windows;
 }
 public class Snapshot { public double generated; public string machine; public Provider[] providers; }
@@ -899,9 +899,31 @@ class Detail : Form {
             Art.Text(g,p==null ? "Reading local usage…" : Art.Number(p.tokens5h)+" tokens / 5h · "+Art.Number(p.tokensWeek)+" / 7d",
                 12,Art.Ink,new Rectangle(x,316,336,22),true);
             Art.Text(g,widget.StatusFor(p),11,Art.Stale(widget.Data,p) ? Color.FromArgb(240,201,75) : Art.Muted,new Rectangle(x,340,336,20));
+            if(id=="claude" && p!=null) {
+                var lines=SignInLines(p);
+                for(int r=0;r<lines.Count;r++)
+                    Art.Text(g,lines[r].Item1,11,lines[r].Item2 ? Color.FromArgb(240,201,75) : Art.Muted,new Rectangle(x,362+r*20,336,20));
+            }
         }
         Art.Text(g,"* Last-known quota · token totals cover this PC",10,Art.Muted,new Rectangle(20,410,690,18));
         using(var pen=new Pen(Color.FromArgb(45,45,53))) g.DrawLine(pen,20,444,710,444);
+    }
+    // When Claude Code's long-lived sign-in runs out (a real /login is due), plus the last change seen.
+    static List<Tuple<string,bool>> SignInLines(Provider p) {
+        var parts=new List<Tuple<string,bool>>();
+        if(p.loginExpires>0) {
+            double left=p.loginExpires-Art.Now;
+            var when=DateTimeOffset.FromUnixTimeMilliseconds((long)(p.loginExpires*1000)).ToLocalTime();
+            if(left<=0) parts.Add(Tuple.Create("Sign-in expired · run /login in Claude Code",true));
+            else parts.Add(Tuple.Create("Sign-in valid until "+when.ToString("ddd d MMM")+" ("+Math.Max(1,(int)Math.Ceiling(left/86400))+" days)",left<3*86400));
+        }
+        if(!String.IsNullOrEmpty(p.signinEvent) && p.signinEventAt>0) {
+            int mins=Math.Max(0,(int)((Art.Now-p.signinEventAt)/60));
+            string ago=mins<60 ? mins+"m ago" : mins<2880 ? (mins/60)+"h ago" : (mins/1440)+"d ago";
+            bool early=p.signinEvent.Contains("EARLY");
+            parts.Add(Tuple.Create((early ? "Unexpected: " : "Last change: ")+p.signinEvent.Replace(" EARLY","")+" "+ago+(early ? " · see sign-in log" : ""),early));
+        }
+        return parts;
     }
     public void Open(Rectangle bounds,string tab) {
         if(!Visible) {
