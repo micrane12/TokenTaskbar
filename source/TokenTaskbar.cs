@@ -15,8 +15,8 @@ using System.Web.Script.Serialization;
 using System.Windows.Automation;
 using System.Windows.Forms;
 
-[assembly: System.Reflection.AssemblyVersion("0.1.13.0")]
-[assembly: System.Reflection.AssemblyFileVersion("0.1.13.0")]
+[assembly: System.Reflection.AssemblyVersion("0.1.14.0")]
+[assembly: System.Reflection.AssemblyFileVersion("0.1.14.0")]
 static class AppVersion {
     public static string Display {get {return "v"+typeof(AppVersion).Assembly.GetName().Version.ToString(3);}}
 }
@@ -859,12 +859,20 @@ class Detail : Form {
         // Delegate authentication to the installed CLI; never handle credentials here.
         // Opening Claude Code allows its own session renewal; do not force a
         // browser login merely because the short-lived access token expired.
+        // When Claude Code is signed out (no saved sign-in, or the account rejected
+        // it), /usage cannot fix anything and Claude Code does not offer a sign-in
+        // by itself, so start the CLI sign-in flow.
+        var claude=widget.FindProvider("claude");
+        bool signedOut=claude!=null && (claude.state=="no-credentials" || claude.state=="auth-rejected");
+        string claudeStep=signedOut ?
+            "Write-Host 'Claude Code is signed out. Finish the sign-in in your browser.'; & $path auth login" :
+            "Write-Host 'Claude Code will reconnect using its saved session. If it asks you to sign in, type /login. Use /exit when finished.'; & $path /usage";
         string command=provider=="claude" ?
             "$cli=Get-Command claude -ErrorAction SilentlyContinue | Select-Object -First 1; "+
             "$candidates=@((Join-Path $env:USERPROFILE '.local\\bin\\claude.exe'),(Join-Path $env:APPDATA 'npm\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe'),(Join-Path $env:APPDATA 'npm\\claude.cmd')); "+
             "$path=$candidates | Where-Object {Test-Path -LiteralPath $_} | Select-Object -First 1; "+
             "if(-not $path -and $cli){$path=$cli.Source}; if(-not $path){throw 'Claude Code was not found. Install Claude Code, then reconnect.'}; "+
-            "Write-Host 'Claude Code will reconnect using its saved session. If it asks you to sign in, follow its instructions. Use /exit when finished.'; & $path /usage" : "codex login";
+            claudeStep : "codex login";
         string script="$ErrorActionPreference='Stop'; try { "+command+" } catch { Write-Host $_.Exception.Message }; Read-Host 'Press Enter to close. The widget will update on its next account check'";
         try {
             Process.Start(new ProcessStartInfo(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),"WindowsPowerShell\\v1.0\\powershell.exe"),"-NoProfile -Command \""+script+"\"") {UseShellExecute=true,WorkingDirectory=Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)});

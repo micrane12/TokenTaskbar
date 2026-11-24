@@ -1,5 +1,9 @@
 # TokenTaskbar preview
 
+## v0.1.14
+
+When the Claude card shows *Sign-in required*, **Reconnect** now runs `claude auth login`. Complete sign-in in your browser. TokenTaskbar checks the renewed credentials on its next account check and refreshes the taskbar when Claude returns a new usage reading.
+
 ## v0.1.13
 
 The Usage panel's Claude card now shows when Claude Code's long-lived sign-in expires (**Sign-in valid until …**). That is when a real `/login` is due; the eight-hour access token in between renews by itself. The line turns yellow in the last three days.
